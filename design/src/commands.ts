@@ -79,4 +79,9 @@ export const COMMANDS = new Map<string, {
     usage: "setup",
     flags: [],
   }],
+  ["video", {
+    description: "Generate video with Seedance 2.0 (text-to-video or image-to-video)",
+    usage: "video --prompt \"...\" [--image first.jpg] [--duration 7] [--output /path/out.mp4]",
+    flags: ["--prompt", "--image", "--last-frame", "--duration", "--resolution", "--aspect-ratio", "--no-audio", "--seed", "--output"],
+  }],
 ]);

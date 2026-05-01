@@ -25,6 +25,7 @@ import { evolve } from "./evolve";
 import { generateDesignToCodePrompt } from "./design-to-code";
 import { serve } from "./serve";
 import { gallery } from "./gallery";
+import { generateVideo } from "./video";
 
 function parseArgs(argv: string[]): { command: string; flags: Record<string, string | boolean> } {
   const args = argv.slice(2); // skip bun/node and script path
@@ -251,6 +252,26 @@ async function main(): Promise<void> {
         timeout: flags.timeout ? parseInt(flags.timeout as string) : 600,
       });
       break;
+
+    case "video": {
+      const videoPrompt = flags.prompt as string;
+      if (!videoPrompt) {
+        console.error("--prompt is required");
+        process.exit(1);
+      }
+      await generateVideo({
+        prompt: videoPrompt,
+        image: flags.image as string | undefined,
+        lastFrameImage: flags["last-frame"] as string | undefined,
+        duration: flags.duration ? parseInt(flags.duration as string) : undefined,
+        resolution: flags.resolution as string | undefined,
+        aspectRatio: flags["aspect-ratio"] as string | undefined,
+        generateAudio: flags["no-audio"] ? false : true,
+        seed: flags.seed ? parseInt(flags.seed as string) : undefined,
+        output: (flags.output as string) || "/tmp/gstack-video.mp4",
+      });
+      break;
+    }
   }
 }
 
