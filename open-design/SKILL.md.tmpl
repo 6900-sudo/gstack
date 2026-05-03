@@ -1,0 +1,286 @@
+---
+name: open-design
+preamble-tier: 2
+version: 1.0.0
+description: |
+  Install and configure Open Design — a self-hosted, BYOK alternative to Claude Design.
+  Clones nexu-io/open-design, detects existing coding-agent CLIs on your system
+  (Claude Code, Cursor, Gemini CLI, etc.), sets up API keys, starts the local daemon
+  and Next.js web app, and writes the project URL to CLAUDE.md for future sessions.
+  Use when: "setup open-design", "install open-design", "run open-design locally",
+  "configure open design", "self-host claude design".
+triggers:
+  - setup open design
+  - install open design
+  - run open design
+allowed-tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - AskUserQuestion
+---
+
+{{PREAMBLE}}
+
+# /setup-open-design — Install & Configure Open Design
+
+You are helping the user get Open Design running locally. Open Design is a self-hosted
+alternative to Claude Design that works with any coding-agent CLI already on the system —
+Claude Code, Cursor, Gemini CLI, and more. No Anthropic account required unless the user
+wants to use the Anthropic API endpoint directly.
+
+After this skill runs, the user has a running Open Design instance at `http://localhost:3000`
+and the URL is saved to CLAUDE.md.
+
+## User-invocable
+When the user types `/setup-open-design`, run this skill.
+
+## Instructions
+
+### Step 1: Check if Open Design is already installed
+
+```bash
+# Check for existing installation
+ls -la ~/.od/ 2>/dev/null || echo "NO_OD_DIR"
+ls -la ~/open-design/ 2>/dev/null || echo "NO_HOME_CLONE"
+# Check if daemon is already running
+curl -sf http://localhost:7701/health 2>/dev/null && echo "DAEMON_RUNNING" || echo "DAEMON_NOT_RUNNING"
+# Check if web is already running
+curl -sf http://localhost:3000 -o /dev/null -w "WEB_%{http_code}" 2>/dev/null || echo "WEB_NOT_RUNNING"
+# Check CLAUDE.md config
+grep -A 5 "## Open Design" CLAUDE.md 2>/dev/null || echo "NO_OD_CONFIG"
+```
+
+If Open Design is already running (daemon + web), show the existing config and ask:
+
+- **Context:** Open Design is already installed and running.
+- **RECOMMENDATION:** Choose C if everything is working correctly.
+- A) Reinstall from scratch
+- B) Restart services only
+- C) Done — it's already running
+
+If the user picks B, jump to Step 5 (Start Services).
+If the user picks C, stop.
+
+### Step 2: Check prerequisites
+
+```bash
+# Node.js
+node --version 2>/dev/null || echo "NO_NODE"
+
+# pnpm
+pnpm --version 2>/dev/null || echo "NO_PNPM"
+
+# git
+git --version 2>/dev/null || echo "NO_GIT"
+
+# Detect installed coding-agent CLIs
+echo "=== CLI DETECTION ==="
+which claude 2>/dev/null && claude --version 2>/dev/null | head -1 && echo "CLI:claude-code" || echo "CLI:claude-code:NOT_FOUND"
+which cursor 2>/dev/null && echo "CLI:cursor" || echo "CLI:cursor:NOT_FOUND"
+which gemini 2>/dev/null && gemini --version 2>/dev/null | head -1 && echo "CLI:gemini-cli" || echo "CLI:gemini-cli:NOT_FOUND"
+which codex 2>/dev/null && echo "CLI:codex" || echo "CLI:codex:NOT_FOUND"
+which aider 2>/dev/null && echo "CLI:aider" || echo "CLI:aider:NOT_FOUND"
+which amp 2>/dev/null && echo "CLI:amp" || echo "CLI:amp:NOT_FOUND"
+[ -n "$OPENAI_API_KEY" ] && echo "CLI:openai-api-key:SET" || echo "CLI:openai-api-key:NOT_SET"
+[ -n "$ANTHROPIC_API_KEY" ] && echo "CLI:anthropic-api-key:SET" || echo "CLI:anthropic-api-key:NOT_SET"
+echo "=== END CLI DETECTION ==="
+```
+
+**If Node.js is missing**, use AskUserQuestion:
+
+> Open Design needs Node.js (v18+) and pnpm. They're not installed.
+
+Options:
+- A) Install via nvm: `curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.0/install.sh | bash && source ~/.nvm/nvm.sh && nvm install 20 && npm i -g pnpm`
+- B) Install via Homebrew (macOS): `brew install node pnpm`
+- C) I'll install manually — tell me what's needed and I'll come back
+
+If A or B: run the install command, then re-run the version checks.
+If C: print the manual install instructions and stop.
+
+**If pnpm is missing (Node present):**
+```bash
+npm install -g pnpm
+```
+
+### Step 3: Clone Open Design
+
+```bash
+[ -d ~/open-design ] && echo "HOME_CLONE_EXISTS" || echo "HOME_CLONE_MISSING"
+```
+
+If `HOME_CLONE_EXISTS`, ask:
+
+- **Context:** A clone already exists at `~/open-design`.
+- **RECOMMENDATION:** Choose A to reuse the existing clone.
+- A) Use the existing clone at ~/open-design
+- B) Re-clone fresh (removes and replaces ~/open-design)
+- C) Install in a custom path (I'll type it)
+
+If B:
+```bash
+rm -rf ~/open-design
+git clone https://github.com/nexu-io/open-design.git ~/open-design
+```
+
+If `HOME_CLONE_MISSING` or after cloning:
+```bash
+git clone https://github.com/nexu-io/open-design.git ~/open-design
+```
+
+Show the last 3 commits so the user knows what version they have:
+```bash
+git -C ~/open-design log --oneline -3
+```
+
+### Step 4: Install dependencies and configure
+
+```bash
+cd ~/open-design && pnpm install
+```
+
+If install fails, show the full error output and stop with BLOCKED status.
+
+**Configure API keys**
+
+Check what's already available:
+
+```bash
+[ -n "$ANTHROPIC_API_KEY" ] && echo "ANTHROPIC: set" || echo "ANTHROPIC: not set"
+[ -n "$OPENAI_API_KEY" ] && echo "OPENAI: set" || echo "OPENAI: not set"
+[ -f ~/open-design/.env ] && echo "ENV_FILE: exists" || echo "ENV_FILE: missing"
+[ -f ~/open-design/.env.example ] && grep -v '#' ~/open-design/.env.example | grep '=' | head -10
+```
+
+Use AskUserQuestion:
+
+> Open Design is BYOK (bring your own key). It auto-detects coding-agent CLIs first —
+> if Claude Code is installed, no API key is needed. Keys are only required for the
+> direct API fallback.
+
+Options (show only relevant ones based on CLI detection above):
+- A) Use Claude Code CLI only — no API key needed  [show only if claude-code was found]
+- B) Add Anthropic API key (direct API, fastest path without Claude Code)
+- C) Add OpenAI-compatible API key (works with any OpenAI API endpoint)
+- D) Skip — I'll configure keys manually in ~/open-design/.env
+
+If B: prompt via AskUserQuestion ("Paste your Anthropic API key — it won't be echoed:"),
+then write `ANTHROPIC_API_KEY=<value>` to `~/open-design/.env`.
+If C: prompt for key and base URL, write to `~/open-design/.env`.
+If D: show `cat ~/open-design/.env.example` and continue.
+
+**NEVER print API key values back to the user. Only confirm: "Key saved to ~/open-design/.env".**
+
+### Step 5: Start services
+
+Open Design runs two processes:
+1. **Daemon** (port 7701) — agent spawning, skill registry, SQLite persistence
+2. **Web** (port 3000) — Next.js frontend
+
+```bash
+# Check if ports are free
+lsof -i :7701 2>/dev/null | grep LISTEN && echo "PORT_7701_IN_USE" || echo "PORT_7701_FREE"
+lsof -i :3000 2>/dev/null | grep LISTEN && echo "PORT_3000_IN_USE" || echo "PORT_3000_FREE"
+```
+
+If a port is in use by a non-Open-Design process, ask the user before killing it.
+
+Start the daemon:
+```bash
+cd ~/open-design
+pnpm tools-dev run daemon > /tmp/od-daemon.log 2>&1 &
+echo "DAEMON_PID: $!"
+# Wait up to 30s for daemon to be ready
+for i in $(seq 1 30); do
+  curl -sf http://localhost:7701/health 2>/dev/null && echo "DAEMON_READY" && break
+  [ $i -eq 30 ] && echo "DAEMON_TIMEOUT"
+  sleep 1
+done
+```
+
+If `DAEMON_TIMEOUT`, show `tail -30 /tmp/od-daemon.log` and stop with BLOCKED status.
+
+Start the web app:
+```bash
+cd ~/open-design
+pnpm tools-dev run web > /tmp/od-web.log 2>&1 &
+echo "WEB_PID: $!"
+# Wait up to 30s for web to be ready
+for i in $(seq 1 30); do
+  status=$(curl -sf http://localhost:3000 -o /dev/null -w "%{http_code}" 2>/dev/null)
+  echo "$status" | grep -qE '^(200|301|302)$' && echo "WEB_READY" && break
+  [ $i -eq 30 ] && echo "WEB_TIMEOUT"
+  sleep 1
+done
+```
+
+If `WEB_TIMEOUT`, show `tail -30 /tmp/od-web.log` and stop.
+
+### Step 6: Verify and write config
+
+```bash
+curl -sf http://localhost:7701/health 2>/dev/null
+curl -sf http://localhost:3000 -o /dev/null -w "WEB_HTTP_%{http_code}" 2>/dev/null
+curl -sf http://localhost:7701/api/agents 2>/dev/null | head -30 || echo "AGENTS_ENDPOINT_UNAVAILABLE"
+```
+
+Write configuration to CLAUDE.md (read file first, then append or replace the section):
+
+```markdown
+## Open Design Configuration (configured by /setup-open-design)
+- Web app: http://localhost:3000
+- Daemon: http://localhost:7701
+- Install path: ~/open-design
+- Data: ~/.od/app.sqlite (projects, conversations, messages)
+- Start command: cd ~/open-design && pnpm tools-dev run daemon & pnpm tools-dev run web
+- Detected CLIs: {list detected CLIs from Step 2}
+```
+
+If a `## Skill routing` section exists in CLAUDE.md, append:
+```
+- Open Design, self-hosted design, "start open design", "run design tool" → invoke /setup-open-design
+```
+
+### Step 7: Summary
+
+```
+OPEN DESIGN — READY
+═══════════════════════════════
+Web:      http://localhost:3000
+Daemon:   http://localhost:7701
+Data:     ~/.od/app.sqlite
+CLIs:     {detected CLIs}
+
+Create your first project at http://localhost:3000
+
+To start after a reboot:
+  cd ~/open-design
+  pnpm tools-dev run daemon &
+  pnpm tools-dev run web
+
+Config saved to CLAUDE.md.
+```
+
+Offer to open the browser:
+```bash
+open http://localhost:3000 2>/dev/null || xdg-open http://localhost:3000 2>/dev/null || true
+```
+
+## Key Features
+
+- **31 skills** — prototype templates (web pages, apps, dashboards), document types (specs, OKRs)
+- **72 design systems** — Linear, Stripe, Notion, Apple, Tesla, and more
+- **5 visual directions** — deterministic OKLch colors + font stacks when no brand exists
+- **Real filesystem access** — the spawned agent reads/writes `.od/projects/<id>/` directly
+- **Discovery form** — locks surface, audience, tone, and constraints in 30s before codegen
+- **Import Claude Design exports** — accepts Claude Design ZIP files to continue editing
+
+## Important Rules
+
+- **Never expose API keys.** Confirm the save but never echo the value.
+- **Confirm before reinstalling.** A fresh clone removes `~/open-design/` but `.od/` data persists.
+- **CLAUDE.md is the source of truth.** Write the URL and paths there.
+- **Idempotent.** Re-running /setup-open-design restarts services and rechecks config cleanly.
+- **BYOK always.** Claude Code CLI works without an Anthropic API key.
