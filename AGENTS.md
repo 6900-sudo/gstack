@@ -26,6 +26,7 @@ Skills live in `.agents/skills/`. Invoke them by name (e.g., `/office-hours`).
 | `/browse` | Headless browser — real Chromium, real clicks, ~100ms/command. |
 | `/setup-browser-cookies` | Import cookies from your real browser for authenticated testing. |
 | `/setup-open-design` | Install and run Open Design — self-hosted, BYOK alternative to Claude Design. |
+| `/hyperframes` | Write HTML compositions that render into MP4 video (HeyGen HyperFrames). |
 | `/careful` | Warn before destructive commands (rm -rf, DROP TABLE, force-push). |
 | `/freeze` | Lock edits to one directory. Hard block, not just a warning. |
 | `/guard` | Activate both careful + freeze at once. |
