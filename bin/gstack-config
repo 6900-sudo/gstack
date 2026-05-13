@@ -59,6 +59,12 @@ CONFIG_HEADER='# gstack configuration — edit freely, changes take effect on ne
 #                           # Unknown values default to "default" with a warning.
 #                           # See docs/designs/PLAN_TUNING_V1.md for rationale.
 #
+# ─── Model routing ───────────────────────────────────────────────────
+# model_vision: claude-3-5-sonnet-20241022     # model for vision / multimodal tasks
+# model_balanced: claude-3-7-sonnet-20250219   # model for balanced analysis tasks
+# model_reasoning: claude-opus-4-7             # model for advanced reasoning tasks
+# model_coding: claude-haiku-4-5-20251001      # model for coding and agent tasks
+#
 # ─── Advanced ────────────────────────────────────────────────────────
 # codex_reviews: enabled    # disabled = skip Codex adversarial reviews in /ship
 # gstack_contributor: false # true = file field reports when gstack misbehaves
@@ -83,6 +89,10 @@ lookup_default() {
     gstack_contributor) echo "false" ;;
     skip_eng_review) echo "false" ;;
     cross_project_learnings) echo "" ;; # intentionally empty → unset triggers first-time prompt
+    model_vision) echo "claude-3-5-sonnet-20241022" ;;
+    model_balanced) echo "claude-3-7-sonnet-20250219" ;;
+    model_reasoning) echo "claude-opus-4-7" ;;
+    model_coding) echo "claude-haiku-4-5-20251001" ;;
     *) echo "" ;;
   esac
 }
@@ -142,7 +152,8 @@ case "${1:-}" in
     echo "# ─── Active values (including defaults for unset keys) ───"
     for KEY in proactive routing_declined telemetry auto_upgrade update_check \
                skill_prefix checkpoint_mode checkpoint_push codex_reviews \
-               gstack_contributor skip_eng_review; do
+               gstack_contributor skip_eng_review \
+               model_vision model_balanced model_reasoning model_coding; do
       VALUE=$(grep -E "^${KEY}:" "$CONFIG_FILE" 2>/dev/null | tail -1 | awk '{print $2}' | tr -d '[:space:]' || true)
       SOURCE="default"
       if [ -n "$VALUE" ]; then
@@ -157,7 +168,8 @@ case "${1:-}" in
     echo "# gstack-config defaults"
     for KEY in proactive routing_declined telemetry auto_upgrade update_check \
                skill_prefix checkpoint_mode checkpoint_push codex_reviews \
-               gstack_contributor skip_eng_review; do
+               gstack_contributor skip_eng_review \
+               model_vision model_balanced model_reasoning model_coding; do
       printf '  %-24s %s\n' "$KEY:" "$(lookup_default "$KEY")"
     done
     ;;
