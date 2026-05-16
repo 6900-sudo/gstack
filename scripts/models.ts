@@ -13,6 +13,10 @@
 
 export const ALL_MODEL_NAMES = [
   'claude',
+  'claude-3-5',
+  'claude-3-7',
+  'claude-4',
+  'claude-4-5',
   'opus-4-7',
   'gpt',
   'gpt-5.4',
@@ -52,7 +56,12 @@ export function resolveModel(input: string): Model | null {
   if (/^gpt-5\.4(-|$)/.test(s)) return 'gpt-5.4';
   if (/^gpt(-|$)/.test(s)) return 'gpt';
   if (/^o[0-9]+(-|$)/.test(s)) return 'o-series';
+  // Claude sub-families — most specific first, Opus before generic 4-5 wildcard
   if (/^claude-opus-4-7(-|$)/.test(s)) return 'opus-4-7';
+  if (/^claude-3-5(-|$)/.test(s)) return 'claude-3-5';
+  if (/^claude-3-7(-|$)/.test(s)) return 'claude-3-7';
+  if (/^claude-opus-4(-|$)/.test(s)) return 'claude-4';
+  if (/^claude-[a-z]+-4-5(-|$)/.test(s)) return 'claude-4-5';
   if (/^claude(-|$)/.test(s)) return 'claude';
   if (/^gemini(-|$)/.test(s)) return 'gemini';
 
