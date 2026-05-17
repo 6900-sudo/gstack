@@ -5,8 +5,8 @@ import android.net.Uri
 import android.os.Environment
 
 fun getOutputPath(context: Context, filename: String): String {
-    val dir = context.getExternalFilesDir(Environment.DIRECTORY_MOVIES)
-    return "${dir?.absolutePath}/$filename"
+    val dir = context.getExternalFilesDir(Environment.DIRECTORY_MOVIES) ?: context.filesDir
+    return "${dir.absolutePath}/$filename"
 }
 
 // Copies a content:// URI to a private cache file and returns the path.

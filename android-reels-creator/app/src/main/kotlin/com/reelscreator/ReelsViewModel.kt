@@ -3,6 +3,7 @@ package com.reelscreator
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,13 +35,23 @@ class ReelsViewModel(application: Application) : AndroidViewModel(application) {
     private val _newsState = MutableStateFlow(NewsState())
     val newsState: StateFlow<NewsState> = _newsState.asStateFlow()
 
+    private val _busy = AtomicBoolean(false)
+
     // ── Processing state helpers ──────────────────────────────────────────
 
     private fun processing() = _state.value.copy(isProcessing = true, error = null, outputPath = null)
     private fun done(path: String?) = _state.value.copy(isProcessing = false, outputPath = path, progress = 0.0)
+        .also { _busy.set(false) }
     private fun failed(msg: String) = _state.value.copy(isProcessing = false, error = msg, progress = 0.0)
+        .also { _busy.set(false) }
 
-    private fun guardBusy(): Boolean = _state.value.isProcessing
+    private fun guardBusy(): Boolean = !_busy.compareAndSet(false, true)
+
+    override fun onCleared() {
+        super.onCleared()
+        FFmpegHelper.cancel()
+        _busy.set(false)
+    }
 
     fun clearResult() {
         _state.value = _state.value.copy(outputPath = null, error = null)
