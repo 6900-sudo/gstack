@@ -545,6 +545,12 @@ function escapeDrawtext(str) {
   return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/:/g, '\\:');
 }
 
+// ── HTML escape helper (for safe innerHTML insertion) ─────────────────────────
+
+function escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 // ── File size warning ─────────────────────────────────────────────────────────
 
 function checkSize(file, warnId) {
@@ -592,6 +598,7 @@ document.getElementById('merge-btn').addEventListener('click', async () => {
   clearResult();
   setProgress(0);
 
+  let url = null;
   try {
     for (let i = 0; i < clips.length; i++) {
       await ffmpeg.writeFile(`input${i}.mp4`, await fetchFile(clips[i]));
@@ -600,11 +607,7 @@ document.getElementById('merge-btn').addEventListener('click', async () => {
     await ffmpeg.writeFile('list.txt', new TextEncoder().encode(listContent));
     await ffmpeg.exec(['-y', '-f', 'concat', '-safe', '0', '-i', 'list.txt', '-c', 'copy', 'output.mp4']);
     const data = await ffmpeg.readFile('output.mp4');
-    const url = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
-
-    for (let i = 0; i < clips.length; i++) try { await ffmpeg.deleteFile(`input${i}.mp4`); } catch (_) {}
-    try { await ffmpeg.deleteFile('list.txt'); } catch (_) {}
-    try { await ffmpeg.deleteFile('output.mp4'); } catch (_) {}
+    url = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
 
     setProgress(100);
     setTimeout(hideProgress, 400);
@@ -613,6 +616,9 @@ document.getElementById('merge-btn').addEventListener('click', async () => {
     hideProgress();
     showError(err.message || 'Merge failed');
   } finally {
+    for (let i = 0; i < clips.length; i++) try { await ffmpeg.deleteFile(`input${i}.mp4`); } catch (_) {}
+    try { await ffmpeg.deleteFile('list.txt'); } catch (_) {}
+    try { await ffmpeg.deleteFile('output.mp4'); } catch (_) {}
     isProcessing = false;
   }
 });
@@ -735,7 +741,7 @@ function updateTxtPreview() {
 
   preview.style.display = 'block';
   inner.innerHTML = txtLines
-    .map((l, i) => `<div style="padding:2px 0; border-bottom:1px solid var(--border)">${i + 1}. ${l}</div>`)
+    .map((l, i) => `<div style="padding:2px 0; border-bottom:1px solid var(--border)">${i + 1}. ${escapeHtml(l)}</div>`)
     .join('');
 
   const slice = (dur / txtLines.length).toFixed(1);
