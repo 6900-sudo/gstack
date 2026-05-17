@@ -3,7 +3,6 @@ name: Deploy Reels App to GitHub Pages
 on:
   push:
     branches:
-      - 'claude/android-reels-creator-lzCSq'
       - 'main'
     paths:
       - 'reels-html/**'
