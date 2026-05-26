@@ -22,6 +22,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 // ── Shared composables ────────────────────────────────────────────────────────
 
@@ -61,6 +64,7 @@ private fun Uri.toPath(context: android.content.Context, suffix: String = ".mp4"
 @Composable
 fun TrimTab(vm: ReelsViewModel) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var videoUri by remember { mutableStateOf<Uri?>(null) }
     var startSec by remember { mutableStateOf("0") }
     var durationSec by remember { mutableStateOf("15") }
@@ -88,9 +92,12 @@ fun TrimTab(vm: ReelsViewModel) {
             label = "Trim",
             enabled = videoUri != null
         ) {
-            val path = videoUri!!.toPath(context) ?: return@ProcessButton
-            val output = getOutputPath(context, "trim_${System.currentTimeMillis()}.mp4")
-            vm.trimVideo(path, output, startSec.toDoubleOrNull() ?: 0.0, durationSec.toDoubleOrNull() ?: 15.0)
+            scope.launch {
+                val path = withContext(Dispatchers.IO) { videoUri!!.toPath(context) }
+                    ?: return@launch
+                val output = getOutputPath(context, "trim_${System.currentTimeMillis()}.mp4")
+                vm.trimVideo(path, output, startSec.toDoubleOrNull() ?: 0.0, durationSec.toDoubleOrNull() ?: 15.0)
+            }
         }
     }
 }
@@ -100,6 +107,7 @@ fun TrimTab(vm: ReelsViewModel) {
 @Composable
 fun MergeTab(vm: ReelsViewModel) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var clips by remember { mutableStateOf(listOf<Uri>()) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { u ->
         if (u != null) clips = clips + u
@@ -134,10 +142,12 @@ fun MergeTab(vm: ReelsViewModel) {
             label = "Merge ${clips.size} clips",
             enabled = clips.size >= 2
         ) {
-            val paths = clips.mapNotNull { it.toPath(context) }
-            if (paths.size < 2) return@ProcessButton
-            val output = getOutputPath(context, "merge_${System.currentTimeMillis()}.mp4")
-            vm.mergeClips(paths, output)
+            scope.launch {
+                val paths = withContext(Dispatchers.IO) { clips.mapNotNull { it.toPath(context) } }
+                if (paths.size < 2) return@launch
+                val output = getOutputPath(context, "merge_${System.currentTimeMillis()}.mp4")
+                vm.mergeClips(paths, output)
+            }
         }
     }
 }
@@ -147,6 +157,7 @@ fun MergeTab(vm: ReelsViewModel) {
 @Composable
 fun AudioTab(vm: ReelsViewModel) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var videoUri by remember { mutableStateOf<Uri?>(null) }
     var audioUri by remember { mutableStateOf<Uri?>(null) }
 
@@ -159,10 +170,14 @@ fun AudioTab(vm: ReelsViewModel) {
             label = "Mix audio",
             enabled = videoUri != null && audioUri != null
         ) {
-            val vPath = videoUri!!.toPath(context, ".mp4") ?: return@ProcessButton
-            val aPath = audioUri!!.toPath(context, ".mp3") ?: return@ProcessButton
-            val output = getOutputPath(context, "audio_${System.currentTimeMillis()}.mp4")
-            vm.addAudio(vPath, aPath, output)
+            scope.launch {
+                val vPath = withContext(Dispatchers.IO) { videoUri!!.toPath(context, ".mp4") }
+                    ?: return@launch
+                val aPath = withContext(Dispatchers.IO) { audioUri!!.toPath(context, ".mp3") }
+                    ?: return@launch
+                val output = getOutputPath(context, "audio_${System.currentTimeMillis()}.mp4")
+                vm.addAudio(vPath, aPath, output)
+            }
         }
     }
 }
@@ -172,6 +187,7 @@ fun AudioTab(vm: ReelsViewModel) {
 @Composable
 fun ResizeTab(vm: ReelsViewModel) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var videoUri by remember { mutableStateOf<Uri?>(null) }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -182,9 +198,12 @@ fun ResizeTab(vm: ReelsViewModel) {
             label = "Resize to Reels",
             enabled = videoUri != null
         ) {
-            val path = videoUri!!.toPath(context) ?: return@ProcessButton
-            val output = getOutputPath(context, "reels_${System.currentTimeMillis()}.mp4")
-            vm.resizeToReels(path, output)
+            scope.launch {
+                val path = withContext(Dispatchers.IO) { videoUri!!.toPath(context) }
+                    ?: return@launch
+                val output = getOutputPath(context, "reels_${System.currentTimeMillis()}.mp4")
+                vm.resizeToReels(path, output)
+            }
         }
     }
 }
@@ -194,6 +213,7 @@ fun ResizeTab(vm: ReelsViewModel) {
 @Composable
 fun CaptionTab(vm: ReelsViewModel) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var videoUri by remember { mutableStateOf<Uri?>(null) }
     var captionText by remember { mutableStateOf("") }
 
@@ -214,9 +234,12 @@ fun CaptionTab(vm: ReelsViewModel) {
             label = "Add caption",
             enabled = videoUri != null && captionText.isNotBlank()
         ) {
-            val path = videoUri!!.toPath(context) ?: return@ProcessButton
-            val output = getOutputPath(context, "caption_${System.currentTimeMillis()}.mp4")
-            vm.addCaption(path, output, captionText)
+            scope.launch {
+                val path = withContext(Dispatchers.IO) { videoUri!!.toPath(context) }
+                    ?: return@launch
+                val output = getOutputPath(context, "caption_${System.currentTimeMillis()}.mp4")
+                vm.addCaption(path, output, captionText)
+            }
         }
     }
 }
@@ -265,6 +288,7 @@ fun TextToVideoTab(vm: ReelsViewModel) {
 @Composable
 fun TxtOverlayTab(vm: ReelsViewModel) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var videoUri by remember { mutableStateOf<Uri?>(null) }
     var txtUri by remember { mutableStateOf<Uri?>(null) }
     var durationSec by remember { mutableStateOf("30") }
@@ -273,12 +297,16 @@ fun TxtOverlayTab(vm: ReelsViewModel) {
     val txtLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { u ->
         if (u != null) {
             txtUri = u
-            previewLines = try {
-                context.contentResolver.openInputStream(u)
-                    ?.bufferedReader()?.readLines()
-                    ?.filter { it.isNotBlank() }
-                    ?: emptyList()
-            } catch (_: Exception) { emptyList() }
+            scope.launch {
+                previewLines = withContext(Dispatchers.IO) {
+                    try {
+                        context.contentResolver.openInputStream(u)
+                            ?.bufferedReader()?.readLines()
+                            ?.filter { it.isNotBlank() }
+                            ?: emptyList()
+                    } catch (_: Exception) { emptyList() }
+                }
+            }
         }
     }
 
@@ -323,7 +351,7 @@ fun TxtOverlayTab(vm: ReelsViewModel) {
 
         if (previewLines.isNotEmpty()) {
             val dur = durationSec.toDoubleOrNull() ?: 0.0
-            val slice = if (previewLines.isNotEmpty() && dur > 0) dur / previewLines.size else 0.0
+            val slice = if (dur > 0) dur / previewLines.size else 0.0
             Text(
                 "Each caption shown for ~${"%.1f".format(slice)}s",
                 style = MaterialTheme.typography.bodySmall
@@ -334,17 +362,20 @@ fun TxtOverlayTab(vm: ReelsViewModel) {
             label = "Burn captions",
             enabled = videoUri != null && txtUri != null && previewLines.isNotEmpty()
         ) {
-            val vPath = videoUri!!.toPath(context) ?: return@ProcessButton
-            val dur = durationSec.toDoubleOrNull() ?: 30.0
-
-            // Copy txt to a temp file FFmpeg can read
-            val tmpTxt = java.io.File(context.cacheDir, "overlay_${System.currentTimeMillis()}.txt")
-            context.contentResolver.openInputStream(txtUri!!)?.use { input ->
-                tmpTxt.outputStream().use { input.copyTo(it) }
+            scope.launch {
+                val vPath = withContext(Dispatchers.IO) { videoUri!!.toPath(context) }
+                    ?: return@launch
+                val dur = durationSec.toDoubleOrNull() ?: 30.0
+                val tmpTxt = withContext(Dispatchers.IO) {
+                    val f = java.io.File(context.cacheDir, "overlay_${System.currentTimeMillis()}.txt")
+                    context.contentResolver.openInputStream(txtUri!!)?.use { input ->
+                        f.outputStream().use { input.copyTo(it) }
+                    }
+                    f
+                }
+                val output = getOutputPath(context, "txt_overlay_${System.currentTimeMillis()}.mp4")
+                vm.addTxtOverlay(vPath, tmpTxt.absolutePath, output, dur)
             }
-
-            val output = getOutputPath(context, "txt_overlay_${System.currentTimeMillis()}.mp4")
-            vm.addTxtOverlay(vPath, tmpTxt.absolutePath, output, dur)
         }
     }
 }
