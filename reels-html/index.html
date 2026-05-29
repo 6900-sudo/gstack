@@ -235,6 +235,7 @@
   <button class="tab-btn" data-tab="resize" disabled>Resize</button>
   <button class="tab-btn" data-tab="caption" disabled>Caption</button>
   <button class="tab-btn" data-tab="textvideo" disabled>Text → Video</button>
+  <button class="tab-btn" data-tab="txt" disabled>TXT Captions</button>
 </nav>
 
 <div id="progress-wrap"><div id="progress-bar"></div></div>
@@ -337,6 +338,37 @@
       </div>
     </div>
     <button class="btn" id="caption-btn" disabled>Burn in caption</button>
+  </section>
+
+  <!-- TXT Captions -->
+  <section class="tab-section" id="tab-txt">
+    <div class="form-group">
+      <label>Video file</label>
+      <input type="file" id="txt-video-file" accept="video/*">
+    </div>
+    <div class="form-group">
+      <label>.txt file — one caption per line</label>
+      <input type="file" id="txt-txt-file" accept="text/plain,.txt">
+    </div>
+    <div id="txt-preview" style="display:none; margin-bottom:16px;">
+      <div id="txt-preview-inner" style="
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 10px 12px;
+        font-size: 0.8rem;
+        color: var(--muted);
+        max-height: 140px;
+        overflow-y: auto;
+      "></div>
+    </div>
+    <div class="form-group">
+      <label>Video duration (seconds)</label>
+      <input type="number" id="txt-duration" value="30" min="1" step="1">
+    </div>
+    <div id="txt-timing" style="font-size:0.78rem; color:var(--muted); margin-bottom:16px;"></div>
+    <p class="hint">Each line appears for an equal slice of the video duration. Captions are burned in near the bottom.</p>
+    <button class="btn" id="txt-btn" disabled>Burn captions</button>
   </section>
 
   <!-- Text → Video -->
@@ -513,6 +545,12 @@ function escapeDrawtext(str) {
   return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/:/g, '\\:');
 }
 
+// ── HTML escape helper (for safe innerHTML insertion) ─────────────────────────
+
+function escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 // ── File size warning ─────────────────────────────────────────────────────────
 
 function checkSize(file, warnId) {
@@ -560,6 +598,7 @@ document.getElementById('merge-btn').addEventListener('click', async () => {
   clearResult();
   setProgress(0);
 
+  let url = null;
   try {
     for (let i = 0; i < clips.length; i++) {
       await ffmpeg.writeFile(`input${i}.mp4`, await fetchFile(clips[i]));
@@ -568,11 +607,7 @@ document.getElementById('merge-btn').addEventListener('click', async () => {
     await ffmpeg.writeFile('list.txt', new TextEncoder().encode(listContent));
     await ffmpeg.exec(['-y', '-f', 'concat', '-safe', '0', '-i', 'list.txt', '-c', 'copy', 'output.mp4']);
     const data = await ffmpeg.readFile('output.mp4');
-    const url = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
-
-    for (let i = 0; i < clips.length; i++) try { await ffmpeg.deleteFile(`input${i}.mp4`); } catch (_) {}
-    try { await ffmpeg.deleteFile('list.txt'); } catch (_) {}
-    try { await ffmpeg.deleteFile('output.mp4'); } catch (_) {}
+    url = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
 
     setProgress(100);
     setTimeout(hideProgress, 400);
@@ -581,6 +616,9 @@ document.getElementById('merge-btn').addEventListener('click', async () => {
     hideProgress();
     showError(err.message || 'Merge failed');
   } finally {
+    for (let i = 0; i < clips.length; i++) try { await ffmpeg.deleteFile(`input${i}.mp4`); } catch (_) {}
+    try { await ffmpeg.deleteFile('list.txt'); } catch (_) {}
+    try { await ffmpeg.deleteFile('output.mp4'); } catch (_) {}
     isProcessing = false;
   }
 });
@@ -683,6 +721,64 @@ document.getElementById('textvideo-btn').addEventListener('click', async () => {
   } finally {
     isProcessing = false;
   }
+});
+
+// ── TXT Captions ──────────────────────────────────────────────────────────────
+
+let txtLines = [];
+
+function updateTxtPreview() {
+  const preview = document.getElementById('txt-preview');
+  const inner = document.getElementById('txt-preview-inner');
+  const timing = document.getElementById('txt-timing');
+  const dur = parseFloat(document.getElementById('txt-duration').value) || 30;
+
+  if (txtLines.length === 0) {
+    preview.style.display = 'none';
+    timing.textContent = '';
+    return;
+  }
+
+  preview.style.display = 'block';
+  inner.innerHTML = txtLines
+    .map((l, i) => `<div style="padding:2px 0; border-bottom:1px solid var(--border)">${i + 1}. ${escapeHtml(l)}</div>`)
+    .join('');
+
+  const slice = (dur / txtLines.length).toFixed(1);
+  timing.textContent = `${txtLines.length} line${txtLines.length !== 1 ? 's' : ''} — each shown for ~${slice}s`;
+}
+
+document.getElementById('txt-txt-file').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) { txtLines = []; updateTxtPreview(); return; }
+  const text = await file.text();
+  txtLines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  updateTxtPreview();
+});
+
+document.getElementById('txt-duration').addEventListener('input', updateTxtPreview);
+
+document.getElementById('txt-btn').addEventListener('click', async () => {
+  const videoFile = document.getElementById('txt-video-file').files[0];
+  const dur = parseFloat(document.getElementById('txt-duration').value) || 30;
+
+  if (!videoFile) { showError('Please select a video file.'); return; }
+  if (txtLines.length === 0) { showError('Please select a .txt file with at least one line.'); return; }
+  if (!fontLoaded) { showError('Font not loaded — TXT Captions requires an internet connection on first use.'); return; }
+
+  const sliceDur = dur / txtLines.length;
+  const filters = txtLines.map((line, i) => {
+    const safe = escapeDrawtext(line);
+    const start = (i * sliceDur).toFixed(3);
+    const end = ((i + 1) * sliceDur).toFixed(3);
+    return `drawtext=fontfile=font.ttf:text='${safe}':fontcolor=white:fontsize=48:x=(w-text_w)/2:y=h-120:box=1:boxcolor=black@0.5:boxborderw=10:enable='between(t\\,${start}\\,${end})'`;
+  });
+
+  await runOperation(
+    [['input.mp4', videoFile]],
+    ['-y', '-i', 'input.mp4', '-vf', filters.join(','), '-codec:a', 'copy', 'output.mp4'],
+    'output.mp4'
+  );
 });
 
 // ── Boot ──────────────────────────────────────────────────────────────────────

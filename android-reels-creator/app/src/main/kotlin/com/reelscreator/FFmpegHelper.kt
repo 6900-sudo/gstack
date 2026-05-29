@@ -31,6 +31,13 @@ import java.nio.ByteBuffer
 @OptIn(UnstableApi::class)
 object FFmpegHelper {
 
+    @Volatile private var activeTransformer: Transformer? = null
+
+    fun cancel() {
+        activeTransformer?.cancel()
+        activeTransformer = null
+    }
+
     fun trimVideo(context: Context, input: String, output: String,
                   startSec: Double, durationSec: Double, onDone: (Boolean) -> Unit) {
         val mediaItem = MediaItem.Builder()
@@ -90,10 +97,10 @@ object FFmpegHelper {
         val tmpFiles = mutableListOf<File>()
         try {
             val slides = lines.map { line ->
-                val tmp = File.createTempFile("slide_", ".jpg", context.cacheDir)
+                val tmp = File.createTempFile("slide_", ".png", context.cacheDir)
                 tmpFiles += tmp
                 slideBitmap(line).let { bmp ->
-                    tmp.outputStream().use { bmp.compress(Bitmap.CompressFormat.JPEG, 90, it) }
+                    tmp.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
                     bmp.recycle()
                 }
                 EditedMediaItem.Builder(
@@ -137,19 +144,28 @@ object FFmpegHelper {
         buildTransformer(context, onDone).start(editedItem, output)
     }
 
-    private fun buildTransformer(context: Context, onDone: (Boolean) -> Unit): Transformer =
-        Transformer.Builder(context)
+    private fun buildTransformer(context: Context, onDone: (Boolean) -> Unit): Transformer {
+        activeTransformer?.cancel()
+        return Transformer.Builder(context)
             .addListener(object : Transformer.Listener {
-                override fun onCompleted(composition: Composition, exportResult: ExportResult) =
+                override fun onCompleted(composition: Composition, exportResult: ExportResult) {
+                    activeTransformer = null
                     onDone(true)
+                }
                 override fun onError(composition: Composition, exportResult: ExportResult,
-                                     exportException: ExportException) = onDone(false)
+                                     exportException: ExportException) {
+                    activeTransformer = null
+                    onDone(false)
+                }
             })
             .build()
+            .also { activeTransformer = it }
+    }
 
     private fun staticOverlay(bmp: Bitmap): BitmapOverlay =
         object : BitmapOverlay() {
             override fun getBitmap(presentationTimeUs: Long): Bitmap = bmp
+            override fun release() { if (!bmp.isRecycled) bmp.recycle() }
         }
 
     private fun timedOverlay(lines: List<String>, sliceDurUs: Long): BitmapOverlay {
@@ -158,6 +174,10 @@ object FFmpegHelper {
             override fun getBitmap(presentationTimeUs: Long): Bitmap {
                 val idx = (presentationTimeUs / sliceDurUs).toInt().coerceIn(0, lines.size - 1)
                 return cache.getOrPut(idx) { captionBitmap(lines[idx]) }
+            }
+            override fun release() {
+                cache.values.forEach { if (!it.isRecycled) it.recycle() }
+                cache.clear()
             }
         }
     }
@@ -215,45 +235,60 @@ object FFmpegHelper {
     }
 
     private fun muxVideoWithAudio(videoPath: String, audioPath: String, outputPath: String) {
-        val vEx = MediaExtractor().apply { setDataSource(videoPath) }
-        val aEx = MediaExtractor().apply { setDataSource(audioPath) }
+        val vEx = MediaExtractor()
+        val aEx = MediaExtractor()
+        try {
+            vEx.setDataSource(videoPath)
+            aEx.setDataSource(audioPath)
 
-        val vTrack = (0 until vEx.trackCount).first {
-            vEx.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("video/") == true
-        }
-        val aTrack = (0 until aEx.trackCount).first {
-            aEx.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true
-        }
-        vEx.selectTrack(vTrack); aEx.selectTrack(aTrack)
+            val vTrack = (0 until vEx.trackCount).firstOrNull {
+                vEx.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("video/") == true
+            } ?: throw IllegalArgumentException("No video track found in $videoPath")
+            val aTrack = (0 until aEx.trackCount).firstOrNull {
+                aEx.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true
+            } ?: throw IllegalArgumentException("No audio track found in $audioPath")
+            vEx.selectTrack(vTrack)
+            aEx.selectTrack(aTrack)
 
-        val vFmt = vEx.getTrackFormat(vTrack)
-        val aFmt = aEx.getTrackFormat(aTrack)
-        val durUs = runCatching { vFmt.getLong(MediaFormat.KEY_DURATION) }.getOrDefault(Long.MAX_VALUE)
+            val vFmt = vEx.getTrackFormat(vTrack)
+            val aFmt = aEx.getTrackFormat(aTrack)
+            val durUs = runCatching { vFmt.getLong(MediaFormat.KEY_DURATION) }.getOrDefault(Long.MAX_VALUE)
 
-        val muxer = MediaMuxer(outputPath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
-        val muxV = muxer.addTrack(vFmt)
-        val muxA = muxer.addTrack(aFmt)
-        muxer.start()
+            val bufSize = maxOf(
+                runCatching { vFmt.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE) }.getOrDefault(0),
+                runCatching { aFmt.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE) }.getOrDefault(0),
+                2 * 1024 * 1024
+            )
+            val buf = ByteBuffer.allocate(bufSize)
+            val info = MediaCodec.BufferInfo()
 
-        val buf = ByteBuffer.allocate(1024 * 1024)
-        val info = MediaCodec.BufferInfo()
+            val muxer = MediaMuxer(outputPath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+            try {
+                val muxV = muxer.addTrack(vFmt)
+                val muxA = muxer.addTrack(aFmt)
+                muxer.start()
 
-        fun copyTrack(ex: MediaExtractor, muxTrack: Int, limitUs: Long = Long.MAX_VALUE) {
-            while (true) {
-                val size = ex.readSampleData(buf, 0)
-                if (size < 0 || ex.sampleTime > limitUs) break
-                info.set(0, size, ex.sampleTime,
-                    if (ex.sampleFlags and MediaExtractor.SAMPLE_FLAG_SYNC != 0)
-                        MediaCodec.BUFFER_FLAG_KEY_FRAME else 0)
-                muxer.writeSampleData(muxTrack, buf, info)
-                ex.advance()
+                fun copyTrack(ex: MediaExtractor, muxTrack: Int, limitUs: Long = Long.MAX_VALUE) {
+                    while (true) {
+                        val size = ex.readSampleData(buf, 0)
+                        if (size < 0 || ex.sampleTime > limitUs) break
+                        info.set(0, size, ex.sampleTime,
+                            if (ex.sampleFlags and MediaExtractor.SAMPLE_FLAG_SYNC != 0)
+                                MediaCodec.BUFFER_FLAG_KEY_FRAME else 0)
+                        muxer.writeSampleData(muxTrack, buf, info)
+                        ex.advance()
+                    }
+                }
+
+                copyTrack(vEx, muxV)
+                copyTrack(aEx, muxA, durUs)
+                muxer.stop()
+            } finally {
+                muxer.release()
             }
+        } finally {
+            vEx.release()
+            aEx.release()
         }
-
-        copyTrack(vEx, muxV)
-        copyTrack(aEx, muxA, durUs)
-
-        muxer.stop(); muxer.release()
-        vEx.release(); aEx.release()
     }
 }
