@@ -28,13 +28,16 @@ fun shareVideo(context: Context, path: String, pkg: String? = null) {
         type = "video/mp4"
         putExtra(Intent.EXTRA_STREAM, uri)
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        if (pkg != null) setPackage(pkg)
     }
-    try {
-        context.startActivity(Intent.createChooser(intent, "Share to…"))
-    } catch (_: android.content.ActivityNotFoundException) {
-        context.startActivity(Intent.createChooser(intent.apply { setPackage(null) }, "Share to…"))
+    if (pkg != null) {
+        try {
+            context.startActivity(intent.apply { setPackage(pkg) })
+            return
+        } catch (_: android.content.ActivityNotFoundException) {
+            intent.setPackage(null)
+        }
     }
+    context.startActivity(Intent.createChooser(intent, "Share to…"))
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

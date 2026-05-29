@@ -131,7 +131,7 @@ object FFmpegHelper {
                 }
             } catch (e: Throwable) {
                 tmpFiles.forEach { it.delete() }
-                onDone(false)
+                android.os.Handler(android.os.Looper.getMainLooper()).post { onDone(false) }
             }
         }.start()
     }
@@ -158,16 +158,21 @@ object FFmpegHelper {
         val presentation = Presentation.createForWidthAndHeight(
             1080, 1920, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP
         )
-        val effects: List<androidx.media3.common.Effect> = when (style) {
-            DramaticStyle.CINEMATIC -> listOf(grayscale, presentation)
-            DramaticStyle.SEPIA -> {
-                val tintOverlay = colorTintOverlay(Color.argb(55, 120, 80, 20))
-                listOf(grayscale, OverlayEffect(ImmutableList.of(tintOverlay)), presentation)
+        val effects: List<androidx.media3.common.Effect> = try {
+            when (style) {
+                DramaticStyle.CINEMATIC -> listOf(grayscale, presentation)
+                DramaticStyle.SEPIA -> {
+                    val tintOverlay = colorTintOverlay(Color.argb(55, 120, 80, 20))
+                    listOf(grayscale, OverlayEffect(ImmutableList.of(tintOverlay)), presentation)
+                }
+                DramaticStyle.NOIR -> {
+                    val tintOverlay = colorTintOverlay(Color.argb(40, 10, 20, 60))
+                    listOf(grayscale, OverlayEffect(ImmutableList.of(tintOverlay)), presentation)
+                }
             }
-            DramaticStyle.NOIR -> {
-                val tintOverlay = colorTintOverlay(Color.argb(40, 10, 20, 60))
-                listOf(grayscale, OverlayEffect(ImmutableList.of(tintOverlay)), presentation)
-            }
+        } catch (e: Throwable) {
+            onDone(false)
+            return
         }
         val editedItem = EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse("file://$input")))
             .setEffects(Effects(emptyList(), effects))
@@ -179,7 +184,12 @@ object FFmpegHelper {
 
     fun addBreakingNewsOverlay(context: Context, input: String, output: String,
                                headline: String, onDone: (Boolean) -> Unit) {
-        val overlay = staticOverlay(breakingNewsBitmap(headline))
+        val overlay = try {
+            staticOverlay(breakingNewsBitmap(headline))
+        } catch (e: Throwable) {
+            onDone(false)
+            return
+        }
         val effects = Effects(
             emptyList(),
             listOf(
@@ -230,7 +240,7 @@ object FFmpegHelper {
                 }
             } catch (e: Throwable) {
                 tmpFiles.forEach { it.delete() }
-                onDone(false)
+                android.os.Handler(android.os.Looper.getMainLooper()).post { onDone(false) }
             }
         }.start()
     }
@@ -239,7 +249,11 @@ object FFmpegHelper {
 
     private fun startSingle(context: Context, editedItem: EditedMediaItem,
                             output: String, onDone: (Boolean) -> Unit) {
-        buildTransformer(context, onDone).start(editedItem, output)
+        try {
+            buildTransformer(context, onDone).start(editedItem, output)
+        } catch (e: Throwable) {
+            onDone(false)
+        }
     }
 
     private fun buildTransformer(context: Context, onDone: (Boolean) -> Unit): Transformer {
@@ -267,7 +281,15 @@ object FFmpegHelper {
         }
 
     private fun timedOverlay(lines: List<String>, sliceDurUs: Long): BitmapOverlay {
-        val cache = LinkedHashMap<Int, Bitmap>(4, 0.75f, true)
+        val cache = object : LinkedHashMap<Int, Bitmap>(8, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, Bitmap>?): Boolean {
+                if (size > 4) {
+                    eldest?.value?.let { if (!it.isRecycled) it.recycle() }
+                    return true
+                }
+                return false
+            }
+        }
         return object : BitmapOverlay() {
             override fun getBitmap(presentationTimeUs: Long): Bitmap {
                 val idx = (presentationTimeUs / sliceDurUs).toInt().coerceIn(0, lines.size - 1)
@@ -315,7 +337,7 @@ object FFmpegHelper {
         for (word in words) {
             val test = if (cur.isEmpty()) word else "$cur $word"
             if (paint.measureText(test) > maxW) {
-                wrappedLines += cur.toString()
+                if (cur.isNotEmpty()) wrappedLines += cur.toString()
                 cur = StringBuilder(word)
             } else {
                 cur = StringBuilder(test)
