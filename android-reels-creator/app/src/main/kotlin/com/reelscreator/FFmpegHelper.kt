@@ -96,35 +96,44 @@ object FFmpegHelper {
     }
 
     fun textToVideo(context: Context, lines: List<String>, output: String, onDone: (Boolean) -> Unit) {
-        val tmpFiles = mutableListOf<File>()
-        try {
-            val slides = lines.map { line ->
-                val tmp = File.createTempFile("slide_", ".png", context.cacheDir)
-                tmpFiles += tmp
-                slideBitmap(line).let { bmp ->
-                    tmp.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
-                    bmp.recycle()
+        Thread {
+            val tmpFiles = mutableListOf<File>()
+            try {
+                val slides = lines.map { line ->
+                    val tmp = File.createTempFile("slide_", ".png", context.cacheDir)
+                    tmpFiles += tmp
+                    slideBitmap(line).let { bmp ->
+                        tmp.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                        bmp.recycle()
+                    }
+                    EditedMediaItem.Builder(
+                        MediaItem.Builder()
+                            .setUri(Uri.fromFile(tmp))
+                            .setImageDurationMs(3000L)
+                            .build()
+                    ).setEffects(Effects(
+                        emptyList(),
+                        listOf(Presentation.createForWidthAndHeight(
+                            1080, 1920, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP))
+                    )).build()
                 }
-                EditedMediaItem.Builder(
-                    MediaItem.Builder()
-                        .setUri(Uri.fromFile(tmp))
-                        .setImageDurationMs(3000L)
-                        .build()
-                ).setEffects(Effects(
-                    emptyList(),
-                    listOf(Presentation.createForWidthAndHeight(
-                        1080, 1920, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP))
-                )).build()
-            }
-            val composition = Composition.Builder(listOf(EditedMediaItemSequence(slides))).build()
-            buildTransformer(context) { ok ->
+                val composition = Composition.Builder(listOf(EditedMediaItemSequence(slides))).build()
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    try {
+                        buildTransformer(context) { ok ->
+                            tmpFiles.forEach { it.delete() }
+                            onDone(ok)
+                        }.start(composition, output)
+                    } catch (e: Throwable) {
+                        tmpFiles.forEach { it.delete() }
+                        onDone(false)
+                    }
+                }
+            } catch (e: Throwable) {
                 tmpFiles.forEach { it.delete() }
-                onDone(ok)
-            }.start(composition, output)
-        } catch (_: Exception) {
-            tmpFiles.forEach { it.delete() }
-            onDone(false)
-        }
+                onDone(false)
+            }
+        }.start()
     }
 
     fun addTxtOverlay(context: Context, input: String, output: String,
@@ -186,35 +195,44 @@ object FFmpegHelper {
 
     fun dramaticNewsReel(context: Context, headlines: List<String>, output: String,
                          onDone: (Boolean) -> Unit) {
-        val tmpFiles = mutableListOf<File>()
-        try {
-            val slides = headlines.map { headline ->
-                val tmp = File.createTempFile("news_slide_", ".png", context.cacheDir)
-                tmpFiles += tmp
-                newsSliderBitmap(headline).let { bmp ->
-                    tmp.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
-                    bmp.recycle()
+        Thread {
+            val tmpFiles = mutableListOf<File>()
+            try {
+                val slides = headlines.map { headline ->
+                    val tmp = File.createTempFile("news_slide_", ".png", context.cacheDir)
+                    tmpFiles += tmp
+                    newsSliderBitmap(headline).let { bmp ->
+                        tmp.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                        bmp.recycle()
+                    }
+                    EditedMediaItem.Builder(
+                        MediaItem.Builder()
+                            .setUri(Uri.fromFile(tmp))
+                            .setImageDurationMs(4500L)
+                            .build()
+                    ).setEffects(Effects(
+                        emptyList(),
+                        listOf(Presentation.createForWidthAndHeight(
+                            1080, 1920, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP))
+                    )).build()
                 }
-                EditedMediaItem.Builder(
-                    MediaItem.Builder()
-                        .setUri(Uri.fromFile(tmp))
-                        .setImageDurationMs(4500L)
-                        .build()
-                ).setEffects(Effects(
-                    emptyList(),
-                    listOf(Presentation.createForWidthAndHeight(
-                        1080, 1920, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP))
-                )).build()
-            }
-            val composition = Composition.Builder(listOf(EditedMediaItemSequence(slides))).build()
-            buildTransformer(context) { ok ->
+                val composition = Composition.Builder(listOf(EditedMediaItemSequence(slides))).build()
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    try {
+                        buildTransformer(context) { ok ->
+                            tmpFiles.forEach { it.delete() }
+                            onDone(ok)
+                        }.start(composition, output)
+                    } catch (e: Throwable) {
+                        tmpFiles.forEach { it.delete() }
+                        onDone(false)
+                    }
+                }
+            } catch (e: Throwable) {
                 tmpFiles.forEach { it.delete() }
-                onDone(ok)
-            }.start(composition, output)
-        } catch (_: Exception) {
-            tmpFiles.forEach { it.delete() }
-            onDone(false)
-        }
+                onDone(false)
+            }
+        }.start()
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
