@@ -1,8 +1,10 @@
 package com.reelscreator
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -17,12 +19,30 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 
+fun shareVideo(context: Context, path: String, pkg: String? = null) {
+    val file = java.io.File(path)
+    val uri = androidx.core.content.FileProvider.getUriForFile(
+        context, "${context.packageName}.fileprovider", file
+    )
+    val intent = Intent(Intent.ACTION_SEND).apply {
+        type = "video/mp4"
+        putExtra(Intent.EXTRA_STREAM, uri)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        if (pkg != null) setPackage(pkg)
+    }
+    try {
+        context.startActivity(Intent.createChooser(intent, "Share to…"))
+    } catch (_: android.content.ActivityNotFoundException) {
+        context.startActivity(Intent.createChooser(intent.apply { setPackage(null) }, "Share to…"))
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReelsScreen(vm: ReelsViewModel = viewModel()) {
     val state by vm.state.collectAsState()
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("News", "Trim", "Merge", "Audio", "Resize", "Caption", "Text→Video", "TXT")
+    val tabs = listOf("News", "Trim", "Merge", "Audio", "Resize", "Caption", "Text→Video", "TXT", "Effects", "Breaking")
     val context = LocalContext.current
 
     Scaffold(
@@ -87,21 +107,29 @@ fun ReelsScreen(vm: ReelsViewModel = viewModel()) {
                     Column(Modifier.padding(12.dp)) {
                         Text("Saved: $path", color = Color.White, style = MaterialTheme.typography.bodySmall)
                         Spacer(Modifier.height(8.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
                             OutlinedButton(
-                                onClick = {
-                                    val intent = Intent(Intent.ACTION_SEND).apply {
-                                        type = "video/mp4"
-                                        putExtra(Intent.EXTRA_STREAM, Uri.parse("file://$path"))
-                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                    }
-                                    context.startActivity(Intent.createChooser(intent, "Share video"))
-                                },
+                                onClick = { shareVideo(context, path) },
                                 colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
                             ) {
                                 Icon(Icons.Default.Share, contentDescription = null)
                                 Spacer(Modifier.width(4.dp))
                                 Text("Share")
+                            }
+                            OutlinedButton(
+                                onClick = { shareVideo(context, path, "com.instagram.android") },
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                            ) {
+                                Text("Instagram")
+                            }
+                            OutlinedButton(
+                                onClick = { shareVideo(context, path, "com.zhiliaoapp.musically") },
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                            ) {
+                                Text("TikTok")
                             }
                             OutlinedButton(
                                 onClick = {
@@ -141,6 +169,8 @@ fun ReelsScreen(vm: ReelsViewModel = viewModel()) {
                     5 -> CaptionTab(vm)
                     6 -> TextToVideoTab(vm)
                     7 -> TxtOverlayTab(vm)
+                    8 -> EffectsTab(vm)
+                    9 -> BreakingNewsTab(vm)
                 }
             }
         }

@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Rect
 import android.graphics.Typeface
 import android.media.MediaCodec
 import android.media.MediaExtractor
@@ -17,6 +18,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.effect.BitmapOverlay
 import androidx.media3.effect.OverlayEffect
 import androidx.media3.effect.Presentation
+import androidx.media3.effect.RgbFilter
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.EditedMediaItem
 import androidx.media3.transformer.EditedMediaItemSequence
@@ -137,6 +139,84 @@ object FFmpegHelper {
         startSingle(context, editedItem, output, onDone)
     }
 
+    // ── Dramatic Effects ──────────────────────────────────────────────────────
+
+    enum class DramaticStyle { CINEMATIC, SEPIA, NOIR }
+
+    fun applyDramaticEffect(context: Context, input: String, output: String,
+                            style: DramaticStyle, onDone: (Boolean) -> Unit) {
+        val grayscale = RgbFilter.createGrayscaleFilter()
+        val presentation = Presentation.createForWidthAndHeight(
+            1080, 1920, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP
+        )
+        val effects: List<androidx.media3.common.Effect> = when (style) {
+            DramaticStyle.CINEMATIC -> listOf(grayscale, presentation)
+            DramaticStyle.SEPIA -> {
+                val tintOverlay = colorTintOverlay(Color.argb(55, 120, 80, 20))
+                listOf(grayscale, OverlayEffect(ImmutableList.of(tintOverlay)), presentation)
+            }
+            DramaticStyle.NOIR -> {
+                val tintOverlay = colorTintOverlay(Color.argb(40, 10, 20, 60))
+                listOf(grayscale, OverlayEffect(ImmutableList.of(tintOverlay)), presentation)
+            }
+        }
+        val editedItem = EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse("file://$input")))
+            .setEffects(Effects(emptyList(), effects))
+            .build()
+        startSingle(context, editedItem, output, onDone)
+    }
+
+    // ── Breaking News Overlay ─────────────────────────────────────────────────
+
+    fun addBreakingNewsOverlay(context: Context, input: String, output: String,
+                               headline: String, onDone: (Boolean) -> Unit) {
+        val overlay = staticOverlay(breakingNewsBitmap(headline))
+        val effects = Effects(
+            emptyList(),
+            listOf(
+                OverlayEffect(ImmutableList.of(overlay)),
+                Presentation.createForWidthAndHeight(1080, 1920, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP)
+            )
+        )
+        val editedItem = EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse("file://$input")))
+            .setEffects(effects)
+            .build()
+        startSingle(context, editedItem, output, onDone)
+    }
+
+    fun dramaticNewsReel(context: Context, headlines: List<String>, output: String,
+                         onDone: (Boolean) -> Unit) {
+        val tmpFiles = mutableListOf<File>()
+        try {
+            val slides = headlines.map { headline ->
+                val tmp = File.createTempFile("news_slide_", ".png", context.cacheDir)
+                tmpFiles += tmp
+                newsSliderBitmap(headline).let { bmp ->
+                    tmp.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                    bmp.recycle()
+                }
+                EditedMediaItem.Builder(
+                    MediaItem.Builder()
+                        .setUri(Uri.fromFile(tmp))
+                        .setImageDurationMs(4500L)
+                        .build()
+                ).setEffects(Effects(
+                    emptyList(),
+                    listOf(Presentation.createForWidthAndHeight(
+                        1080, 1920, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP))
+                )).build()
+            }
+            val composition = Composition.Builder(listOf(EditedMediaItemSequence(slides))).build()
+            buildTransformer(context) { ok ->
+                tmpFiles.forEach { it.delete() }
+                onDone(ok)
+            }.start(composition, output)
+        } catch (_: Exception) {
+            tmpFiles.forEach { it.delete() }
+            onDone(false)
+        }
+    }
+
     // ── Private helpers ───────────────────────────────────────────────────────
 
     private fun startSingle(context: Context, editedItem: EditedMediaItem,
@@ -232,6 +312,106 @@ object FFmpegHelper {
             y += lineH
         }
         return bmp
+    }
+
+    private fun colorTintOverlay(argb: Int): BitmapOverlay {
+        val bmp = Bitmap.createBitmap(1080, 1920, Bitmap.Config.ARGB_8888)
+        Canvas(bmp).drawColor(argb)
+        return staticOverlay(bmp)
+    }
+
+    private fun breakingNewsBitmap(headline: String): Bitmap {
+        val w = 1080; val h = 1920
+        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bmp)
+
+        // Red banner strip
+        val redPaint = Paint().apply { color = Color.RED }
+        canvas.drawRect(0f, (h - 220).toFloat(), w.toFloat(), (h - 140).toFloat(), redPaint)
+
+        // "⚡ BREAKING" white bold left-aligned
+        val breakingPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            textSize = 52f
+            typeface = Typeface.DEFAULT_BOLD
+            textAlign = Paint.Align.LEFT
+        }
+        canvas.drawText("⚡ BREAKING", 40f, (h - 158).toFloat(), breakingPaint)
+
+        // Dark semi-transparent lower strip
+        val darkPaint = Paint().apply { color = Color.argb(200, 0, 0, 0) }
+        canvas.drawRect(0f, (h - 140).toFloat(), w.toFloat(), h.toFloat(), darkPaint)
+
+        // Word-wrap headline text in white
+        val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            textSize = 44f
+            typeface = Typeface.DEFAULT_BOLD
+            textAlign = Paint.Align.LEFT
+        }
+        val wrappedLines = wrapText(headline, textPaint, 1000f, 3)
+        val lineH = textPaint.textSize + 10f
+        val totalH = wrappedLines.size * lineH
+        var ty = (h - 140).toFloat() + (140 - totalH) / 2f + textPaint.textSize
+        wrappedLines.forEach { line ->
+            canvas.drawText(line, 40f, ty, textPaint)
+            ty += lineH
+        }
+        return bmp
+    }
+
+    private fun newsSliderBitmap(headline: String): Bitmap {
+        val w = 1080; val h = 1920
+        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bmp)
+        canvas.drawColor(Color.BLACK)
+
+        // Red accent bar
+        val accentPaint = Paint().apply { color = Color.RED }
+        canvas.drawRect(40f, 160f, 220f, 168f, accentPaint)
+
+        // "BREAKING NEWS" label
+        val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.RED
+            textSize = 38f
+            typeface = Typeface.DEFAULT_BOLD
+            textAlign = Paint.Align.LEFT
+        }
+        canvas.drawText("BREAKING NEWS", 40f, 140f, labelPaint)
+
+        // Headline text white large, word-wrapped
+        val headlinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            textSize = 78f
+            typeface = Typeface.DEFAULT_BOLD
+            textAlign = Paint.Align.LEFT
+        }
+        val wrappedLines = wrapText(headline, headlinePaint, 1000f, 5)
+        val lineH = headlinePaint.textSize + 20f
+        var ty = 280f
+        wrappedLines.forEach { line ->
+            canvas.drawText(line, 40f, ty, headlinePaint)
+            ty += lineH
+        }
+        return bmp
+    }
+
+    private fun wrapText(text: String, paint: Paint, maxWidth: Float, maxLines: Int): List<String> {
+        val words = text.split(" ")
+        val lines = mutableListOf<String>()
+        var cur = StringBuilder()
+        for (word in words) {
+            if (lines.size >= maxLines) break
+            val test = if (cur.isEmpty()) word else "$cur $word"
+            if (paint.measureText(test) > maxWidth) {
+                if (cur.isNotEmpty()) lines += cur.toString()
+                cur = StringBuilder(word)
+            } else {
+                cur = StringBuilder(test)
+            }
+        }
+        if (cur.isNotEmpty() && lines.size < maxLines) lines += cur.toString()
+        return lines
     }
 
     private fun muxVideoWithAudio(videoPath: String, audioPath: String, outputPath: String) {

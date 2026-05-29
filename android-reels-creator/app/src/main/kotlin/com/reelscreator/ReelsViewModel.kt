@@ -142,4 +142,28 @@ class ReelsViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+
+    fun applyDramaticEffect(input: String, output: String, style: FFmpegHelper.DramaticStyle) {
+        if (guardBusy()) return
+        _state.value = processing()
+        FFmpegHelper.applyDramaticEffect(ctx, input, output, style) { ok ->
+            _state.value = if (ok) done(output) else failed("Effect failed")
+        }
+    }
+
+    fun addBreakingNewsOverlay(input: String, output: String, headline: String) {
+        if (guardBusy()) return
+        _state.value = processing()
+        FFmpegHelper.addBreakingNewsOverlay(ctx, input, output, headline) { ok ->
+            _state.value = if (ok) done(output) else failed("Breaking news overlay failed")
+        }
+    }
+
+    fun dramaticNewsReel(headlines: List<String>, output: String) {
+        if (guardBusy()) return
+        _state.value = processing()
+        FFmpegHelper.dramaticNewsReel(ctx, headlines, output) { ok ->
+            _state.value = if (ok) done(output) else failed("News reel generation failed")
+        }
+    }
 }
