@@ -15,7 +15,6 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
-import com.google.common.collect.ImmutableList
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -29,7 +28,7 @@ fun VideoPreview(
     val player = remember(path) {
         ExoPlayer.Builder(context).build().apply {
             if (videoEffects.isNotEmpty()) {
-                setVideoEffects(ImmutableList.copyOf(videoEffects))
+                setVideoEffects(videoEffects)
             }
             setMediaItem(MediaItem.fromUri(Uri.parse("file://$path")))
             prepare()
