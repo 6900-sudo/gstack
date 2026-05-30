@@ -10,6 +10,7 @@ import androidx.media3.transformer.Composition
 import androidx.media3.transformer.EditedMediaItem
 import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.ExportResult
+import androidx.media3.transformer.ProgressHolder
 import androidx.media3.transformer.Transformer
 
 @OptIn(UnstableApi::class)
@@ -74,7 +75,7 @@ object ReelEngine {
             .build()
 
     private fun startProgressPolling(transformer: Transformer, onProgress: (Int) -> Unit) {
-        val holder = Transformer.ProgressHolder()
+        val holder = ProgressHolder()
         val handler = Handler(Looper.getMainLooper())
         val poll = object : Runnable {
             override fun run() {
