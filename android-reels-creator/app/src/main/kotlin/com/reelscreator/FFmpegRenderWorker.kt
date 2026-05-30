@@ -3,7 +3,10 @@ package com.reelscreator
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import androidx.annotation.OptIn
+import androidx.media3.common.util.UnstableApi
 
+@OptIn(UnstableApi::class)
 object FFmpegRenderWorker {
 
     fun renderSlides(
