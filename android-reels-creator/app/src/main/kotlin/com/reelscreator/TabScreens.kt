@@ -3,6 +3,8 @@ package com.reelscreator
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -380,6 +382,100 @@ fun TxtOverlayTab(vm: ReelsViewModel) {
     }
 }
 
+// ── Effects Tab ───────────────────────────────────────────────────────────────
+
+@Composable
+fun EffectsTab(vm: ReelsViewModel) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var videoUri by remember { mutableStateOf<Uri?>(null) }
+    var selectedStyle by remember { mutableStateOf(TemplateRenderer.DramaticStyle.CINEMATIC) }
+
+    val styleOptions = listOf(
+        TemplateRenderer.DramaticStyle.CINEMATIC to "Cinematic B&W",
+        TemplateRenderer.DramaticStyle.SEPIA     to "Sepia",
+        TemplateRenderer.DramaticStyle.NOIR      to "Noir"
+    )
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Dramatic Effects", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Apply a cinematic colour grade and resize to 1080×1920.",
+            style = MaterialTheme.typography.bodySmall
+        )
+
+        FilePicker("Pick video", videoUri) { videoUri = it }
+
+        Text("Style", style = MaterialTheme.typography.labelMedium)
+        styleOptions.forEach { (style, label) ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                RadioButton(
+                    selected = selectedStyle == style,
+                    onClick = { selectedStyle = style }
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(label, style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+
+        ProcessButton(
+            label = "Apply Effect",
+            enabled = videoUri != null
+        ) {
+            scope.launch {
+                val path = withContext(Dispatchers.IO) { videoUri!!.toPath(context) }
+                    ?: return@launch
+                val output = getOutputPath(context, "effect_${System.currentTimeMillis()}.mp4")
+                vm.applyDramaticEffect(path, output, selectedStyle)
+            }
+        }
+    }
+}
+
+// ── Breaking News Tab ─────────────────────────────────────────────────────────
+
+@Composable
+fun BreakingNewsTab(vm: ReelsViewModel) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var videoUri by remember { mutableStateOf<Uri?>(null) }
+    var headline by remember { mutableStateOf("") }
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Breaking News Overlay", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Burns a bold breaking-news banner onto an existing video clip.",
+            style = MaterialTheme.typography.bodySmall
+        )
+
+        FilePicker("Pick video", videoUri) { videoUri = it }
+
+        OutlinedTextField(
+            value = headline,
+            onValueChange = { headline = it },
+            label = { Text("Headline") },
+            placeholder = { Text("Enter breaking news headline…") },
+            modifier = Modifier.fillMaxWidth(),
+            minLines = 2
+        )
+
+        ProcessButton(
+            label = "Apply Breaking News Overlay",
+            enabled = videoUri != null && headline.isNotBlank()
+        ) {
+            scope.launch {
+                val path = withContext(Dispatchers.IO) { videoUri!!.toPath(context) }
+                    ?: return@launch
+                val output = getOutputPath(context, "breaking_${System.currentTimeMillis()}.mp4")
+                vm.addBreakingNewsOverlay(path, output, headline)
+            }
+        }
+    }
+}
+
 // ── News Feed Tab ─────────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -540,7 +636,7 @@ fun NewsFeedTab(vm: ReelsViewModel) {
 
             Spacer(Modifier.height(4.dp))
 
-            // Generate button
+            // Generate button — plain text slides
             Button(
                 onClick = {
                     val lines = selected.sorted().map { newsState.items[it].title }
@@ -553,6 +649,25 @@ fun NewsFeedTab(vm: ReelsViewModel) {
                 Text(
                     if (selected.isEmpty()) "Select headlines to create reel"
                     else "Create reel · ${selected.size} slide${if (selected.size != 1) "s" else ""} (~${selected.size * 3}s)"
+                )
+            }
+
+            // Breaking news dramatic reel
+            Button(
+                onClick = {
+                    val headlines = selected.sorted().map { newsState.items[it].title }
+                    val output = getOutputPath(context, "breaking_reel_${System.currentTimeMillis()}.mp4")
+                    vm.dramaticNewsReel(headlines, output)
+                },
+                enabled = selected.isNotEmpty(),
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text(
+                    if (selected.isEmpty()) "Select headlines for breaking reel"
+                    else "🎬 Breaking News Auto-Reel · ${selected.size} slide${if (selected.size != 1) "s" else ""} (~${selected.size * 4}s)"
                 )
             }
         }

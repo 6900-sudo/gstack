@@ -2,8 +2,6 @@ name: Build Reels Creator APK
 
 on:
   push:
-    branches:
-      - 'claude/android-reels-creator-lzCSq'
     paths:
       - 'android-reels-creator/**'
   workflow_dispatch:
