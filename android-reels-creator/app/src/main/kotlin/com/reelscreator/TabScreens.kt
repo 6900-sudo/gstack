@@ -254,8 +254,7 @@ fun TextToVideoTab(vm: ReelsViewModel) {
     var rawText by remember { mutableStateOf("") }
 
     Column(
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.verticalScroll(rememberScrollState())
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("Text → Video slides", style = MaterialTheme.typography.titleMedium)
         Text(

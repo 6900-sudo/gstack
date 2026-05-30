@@ -45,13 +45,10 @@ object FFmpegHelper {
     }
 
     fun addAudio(videoInput: String, audioInput: String, output: String, onDone: (Boolean) -> Unit) {
+        val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
         Thread {
-            try {
-                muxVideoWithAudio(videoInput, audioInput, output)
-                onDone(true)
-            } catch (_: Exception) {
-                onDone(false)
-            }
+            val ok = try { muxVideoWithAudio(videoInput, audioInput, output); true } catch (_: Exception) { false }
+            mainHandler.post { onDone(ok) }
         }.start()
     }
 
