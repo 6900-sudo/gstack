@@ -77,9 +77,17 @@ fun ReelsScreen(vm: ReelsViewModel = viewModel()) {
             }
 
             if (state.isProcessing) {
-                LinearProgressIndicator(Modifier.fillMaxWidth())
+                if (state.progress > 0.0) {
+                    LinearProgressIndicator(
+                        progress = { state.progress.toFloat() },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                } else {
+                    LinearProgressIndicator(Modifier.fillMaxWidth())
+                }
                 Text(
-                    "Processing...",
+                    if (state.progress > 0.0) "Processing… ${"%.0f".format(state.progress * 100)}%"
+                    else "Processing...",
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                     style = MaterialTheme.typography.bodySmall
                 )

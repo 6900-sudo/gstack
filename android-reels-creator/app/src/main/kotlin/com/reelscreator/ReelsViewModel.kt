@@ -44,6 +44,9 @@ class ReelsViewModel(application: Application) : AndroidViewModel(application) {
         .also { _busy.set(false) }
     private fun failed(msg: String) = _state.value.copy(isProcessing = false, error = msg, progress = 0.0)
         .also { _busy.set(false) }
+    private fun updateProgress(pct: Int) {
+        _state.value = _state.value.copy(progress = pct / 100.0)
+    }
 
     private fun guardBusy(): Boolean = !_busy.compareAndSet(false, true)
 
@@ -120,7 +123,7 @@ class ReelsViewModel(application: Application) : AndroidViewModel(application) {
     fun textToVideo(lines: List<String>, output: String) {
         if (guardBusy()) return
         _state.value = processing()
-        FFmpegHelper.textToVideo(ctx, lines, output) { ok ->
+        FFmpegHelper.textToVideo(ctx, lines, output, onProgress = ::updateProgress) { ok ->
             _state.value = if (ok) done(output) else failed("Text-to-video failed")
         }
     }
@@ -143,7 +146,7 @@ class ReelsViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun applyDramaticEffect(input: String, output: String, style: FFmpegHelper.DramaticStyle) {
+    fun applyDramaticEffect(input: String, output: String, style: TemplateRenderer.DramaticStyle) {
         if (guardBusy()) return
         _state.value = processing()
         FFmpegHelper.applyDramaticEffect(ctx, input, output, style) { ok ->
@@ -162,7 +165,7 @@ class ReelsViewModel(application: Application) : AndroidViewModel(application) {
     fun dramaticNewsReel(headlines: List<String>, output: String) {
         if (guardBusy()) return
         _state.value = processing()
-        FFmpegHelper.dramaticNewsReel(ctx, headlines, output) { ok ->
+        FFmpegHelper.dramaticNewsReel(ctx, headlines, output, onProgress = ::updateProgress) { ok ->
             _state.value = if (ok) done(output) else failed("News reel generation failed")
         }
     }
