@@ -383,40 +383,31 @@
   </section>
 </main>
 
-<script type="module">
-import { FFmpeg } from 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js';
-import { fetchFile, toBlobURL } from 'https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js';
-
-const ffmpeg = new FFmpeg();
-let fontLoaded = false;
-let isProcessing = false;
-let prevResultUrl = null;
+<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+<script>
+const { createFFmpeg, fetchFile } = FFmpeg;
+let ffmpeg, fontLoaded = false, isProcessing = false, prevResultUrl = null;
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 async function initFFmpeg() {
   try {
-    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
-
-    ffmpeg.on('progress', ({ progress }) => {
-      setProgress(Math.min(progress * 100, 99));
+    ffmpeg = createFFmpeg({
+      corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js',
+      log: false
     });
+    ffmpeg.setProgress(({ ratio }) => setProgress(Math.min(Math.round(ratio * 100), 99)));
+    await ffmpeg.load();
 
-    await ffmpeg.load({
-      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-    });
-
-    // Pre-load font for drawtext (caption + text→video)
     try {
       const res = await fetch(
         'https://raw.githubusercontent.com/google/fonts/main/apache/roboto/static/Roboto-Regular.ttf'
       );
       if (res.ok) {
-        await ffmpeg.writeFile('font.ttf', new Uint8Array(await res.arrayBuffer()));
+        ffmpeg.FS('writeFile', 'font.ttf', new Uint8Array(await res.arrayBuffer()));
         fontLoaded = true;
       }
-    } catch (_) { /* font unavailable offline */ }
+    } catch (_) {}
 
     setStatus('ready', 'FFmpeg ready');
     enableUI();
@@ -518,16 +509,12 @@ async function runOperation(inputWrites, args, outputName) {
   setProgress(0);
 
   try {
-    for (const [name, file] of inputWrites) {
-      await ffmpeg.writeFile(name, await fetchFile(file));
-    }
-    await ffmpeg.exec(args);
-    const data = await ffmpeg.readFile(outputName);
+    for (const [name, file] of inputWrites) ffmpeg.FS('writeFile', name, await fetchFile(file));
+    await ffmpeg.run.apply(ffmpeg, args);
+    const data = ffmpeg.FS('readFile', outputName);
     const url = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
-
-    for (const [name] of inputWrites) try { await ffmpeg.deleteFile(name); } catch (_) {}
-    try { await ffmpeg.deleteFile(outputName); } catch (_) {}
-
+    for (const [name] of inputWrites) try { ffmpeg.FS('unlink', name); } catch (_) {}
+    try { ffmpeg.FS('unlink', outputName); } catch (_) {}
     setProgress(100);
     setTimeout(hideProgress, 400);
     showSuccess(url, outputName);
@@ -598,17 +585,13 @@ document.getElementById('merge-btn').addEventListener('click', async () => {
   clearResult();
   setProgress(0);
 
-  let url = null;
   try {
-    for (let i = 0; i < clips.length; i++) {
-      await ffmpeg.writeFile(`input${i}.mp4`, await fetchFile(clips[i]));
-    }
+    for (let i = 0; i < clips.length; i++) ffmpeg.FS('writeFile', `input${i}.mp4`, await fetchFile(clips[i]));
     const listContent = clips.map((_, i) => `file 'input${i}.mp4'`).join('\n');
-    await ffmpeg.writeFile('list.txt', new TextEncoder().encode(listContent));
-    await ffmpeg.exec(['-y', '-f', 'concat', '-safe', '0', '-i', 'list.txt', '-c', 'copy', 'output.mp4']);
-    const data = await ffmpeg.readFile('output.mp4');
-    url = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
-
+    ffmpeg.FS('writeFile', 'list.txt', new Uint8Array(new TextEncoder().encode(listContent)));
+    await ffmpeg.run('-y', '-f', 'concat', '-safe', '0', '-i', 'list.txt', '-c', 'copy', 'output.mp4');
+    const data = ffmpeg.FS('readFile', 'output.mp4');
+    const url = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
     setProgress(100);
     setTimeout(hideProgress, 400);
     showSuccess(url, 'merged.mp4');
@@ -616,9 +599,9 @@ document.getElementById('merge-btn').addEventListener('click', async () => {
     hideProgress();
     showError(err.message || 'Merge failed');
   } finally {
-    for (let i = 0; i < clips.length; i++) try { await ffmpeg.deleteFile(`input${i}.mp4`); } catch (_) {}
-    try { await ffmpeg.deleteFile('list.txt'); } catch (_) {}
-    try { await ffmpeg.deleteFile('output.mp4'); } catch (_) {}
+    for (let i = 0; i < clips.length; i++) try { ffmpeg.FS('unlink', `input${i}.mp4`); } catch (_) {}
+    try { ffmpeg.FS('unlink', 'list.txt'); } catch (_) {}
+    try { ffmpeg.FS('unlink', 'output.mp4'); } catch (_) {}
     isProcessing = false;
   }
 });
@@ -707,10 +690,10 @@ document.getElementById('textvideo-btn').addEventListener('click', async () => {
     const inputs = lines.map((_, i) => `[v${i}]`).join('');
     const filter = segments.join(';') + `;${inputs}concat=n=${lines.length}:v=1:a=0[out]`;
 
-    await ffmpeg.exec(['-y', '-filter_complex', filter, '-map', '[out]', '-r', '30', 'output.mp4']);
-    const data = await ffmpeg.readFile('output.mp4');
+    await ffmpeg.run('-y', '-filter_complex', filter, '-map', '[out]', '-r', '30', 'output.mp4');
+    const data = ffmpeg.FS('readFile', 'output.mp4');
     const url = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
-    try { await ffmpeg.deleteFile('output.mp4'); } catch (_) {}
+    try { ffmpeg.FS('unlink', 'output.mp4'); } catch (_) {}
 
     setProgress(100);
     setTimeout(hideProgress, 400);
@@ -785,5 +768,6 @@ document.getElementById('txt-btn').addEventListener('click', async () => {
 
 initFFmpeg();
 </script>
+
 </body>
 </html>
