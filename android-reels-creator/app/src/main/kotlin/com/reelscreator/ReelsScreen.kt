@@ -85,12 +85,24 @@ fun ReelsScreen(vm: ReelsViewModel = viewModel()) {
                 } else {
                     LinearProgressIndicator(Modifier.fillMaxWidth())
                 }
-                Text(
-                    if (state.progress > 0.0) "Processing… ${"%.0f".format(state.progress * 100)}%"
-                    else "Processing...",
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                    style = MaterialTheme.typography.bodySmall
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        if (state.progress > 0.0) "Processing… ${"%.0f".format(state.progress * 100)}%"
+                        else "Processing...",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    TextButton(
+                        onClick = { vm.cancelOperation() },
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                    ) {
+                        Text("Cancel", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
             }
 
             state.error?.let { err ->

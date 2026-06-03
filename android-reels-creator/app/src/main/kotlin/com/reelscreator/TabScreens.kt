@@ -96,7 +96,7 @@ fun TrimTab(vm: ReelsViewModel) {
         ) {
             scope.launch {
                 val path = withContext(Dispatchers.IO) { videoUri!!.toPath(context) }
-                    ?: return@launch
+                    ?: run { vm.reportError("Cannot read video file — grant storage permission in Settings > Apps > Reels Creator > Permissions"); return@launch }
                 val output = getOutputPath(context, "trim_${System.currentTimeMillis()}.mp4")
                 vm.trimVideo(path, output, startSec.toDoubleOrNull() ?: 0.0, durationSec.toDoubleOrNull() ?: 15.0)
             }
@@ -146,6 +146,10 @@ fun MergeTab(vm: ReelsViewModel) {
         ) {
             scope.launch {
                 val paths = withContext(Dispatchers.IO) { clips.mapNotNull { it.toPath(context) } }
+                if (paths.size < clips.size) {
+                    vm.reportError("Cannot read one or more clips — grant storage permission in Settings > Apps > Reels Creator > Permissions")
+                    return@launch
+                }
                 if (paths.size < 2) return@launch
                 val output = getOutputPath(context, "merge_${System.currentTimeMillis()}.mp4")
                 vm.mergeClips(paths, output)
@@ -174,9 +178,9 @@ fun AudioTab(vm: ReelsViewModel) {
         ) {
             scope.launch {
                 val vPath = withContext(Dispatchers.IO) { videoUri!!.toPath(context, ".mp4") }
-                    ?: return@launch
+                    ?: run { vm.reportError("Cannot read video file — grant storage permission in Settings > Apps > Reels Creator > Permissions"); return@launch }
                 val aPath = withContext(Dispatchers.IO) { audioUri!!.toPath(context, ".mp3") }
-                    ?: return@launch
+                    ?: run { vm.reportError("Cannot read audio file — grant storage permission in Settings > Apps > Reels Creator > Permissions"); return@launch }
                 val output = getOutputPath(context, "audio_${System.currentTimeMillis()}.mp4")
                 vm.addAudio(vPath, aPath, output)
             }
@@ -202,7 +206,7 @@ fun ResizeTab(vm: ReelsViewModel) {
         ) {
             scope.launch {
                 val path = withContext(Dispatchers.IO) { videoUri!!.toPath(context) }
-                    ?: return@launch
+                    ?: run { vm.reportError("Cannot read video file — grant storage permission in Settings > Apps > Reels Creator > Permissions"); return@launch }
                 val output = getOutputPath(context, "reels_${System.currentTimeMillis()}.mp4")
                 vm.resizeToReels(path, output)
             }
@@ -238,7 +242,7 @@ fun CaptionTab(vm: ReelsViewModel) {
         ) {
             scope.launch {
                 val path = withContext(Dispatchers.IO) { videoUri!!.toPath(context) }
-                    ?: return@launch
+                    ?: run { vm.reportError("Cannot read video file — grant storage permission in Settings > Apps > Reels Creator > Permissions"); return@launch }
                 val output = getOutputPath(context, "caption_${System.currentTimeMillis()}.mp4")
                 vm.addCaption(path, output, captionText)
             }
@@ -365,7 +369,7 @@ fun TxtOverlayTab(vm: ReelsViewModel) {
         ) {
             scope.launch {
                 val vPath = withContext(Dispatchers.IO) { videoUri!!.toPath(context) }
-                    ?: return@launch
+                    ?: run { vm.reportError("Cannot read video file — grant storage permission in Settings > Apps > Reels Creator > Permissions"); return@launch }
                 val dur = durationSec.toDoubleOrNull() ?: 30.0
                 val tmpTxt = withContext(Dispatchers.IO) {
                     val f = java.io.File(context.cacheDir, "overlay_${System.currentTimeMillis()}.txt")
@@ -426,7 +430,7 @@ fun EffectsTab(vm: ReelsViewModel) {
         ) {
             scope.launch {
                 val path = withContext(Dispatchers.IO) { videoUri!!.toPath(context) }
-                    ?: return@launch
+                    ?: run { vm.reportError("Cannot read video file — grant storage permission in Settings > Apps > Reels Creator > Permissions"); return@launch }
                 val output = getOutputPath(context, "effect_${System.currentTimeMillis()}.mp4")
                 vm.applyDramaticEffect(path, output, selectedStyle)
             }
@@ -467,7 +471,7 @@ fun BreakingNewsTab(vm: ReelsViewModel) {
         ) {
             scope.launch {
                 val path = withContext(Dispatchers.IO) { videoUri!!.toPath(context) }
-                    ?: return@launch
+                    ?: run { vm.reportError("Cannot read video file — grant storage permission in Settings > Apps > Reels Creator > Permissions"); return@launch }
                 val output = getOutputPath(context, "breaking_${System.currentTimeMillis()}.mp4")
                 vm.addBreakingNewsOverlay(path, output, headline)
             }

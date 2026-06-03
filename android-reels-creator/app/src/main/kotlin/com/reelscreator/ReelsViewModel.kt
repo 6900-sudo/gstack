@@ -50,6 +50,12 @@ class ReelsViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun guardBusy(): Boolean = !_busy.compareAndSet(false, true)
 
+    fun cancelOperation() {
+        FFmpegHelper.cancel()
+        _state.value = _state.value.copy(isProcessing = false, progress = 0.0, error = null)
+        _busy.set(false)
+    }
+
     override fun onCleared() {
         super.onCleared()
         FFmpegHelper.cancel()
@@ -58,6 +64,10 @@ class ReelsViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearResult() {
         _state.value = _state.value.copy(outputPath = null, error = null)
+    }
+
+    fun reportError(msg: String) {
+        _state.value = _state.value.copy(error = msg, isProcessing = false)
     }
 
     // ── News feed ─────────────────────────────────────────────────────────
