@@ -12,6 +12,7 @@ env:
   IMAGE: ghcr.io/${{ github.repository }}/ci
   EVALS_TIER: periodic
   EVALS_ALL: 1  # Ignore diff — run all periodic tests
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
   build-image:

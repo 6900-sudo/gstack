@@ -11,6 +11,7 @@ concurrency:
 env:
   IMAGE: ghcr.io/${{ github.repository }}/ci
   EVALS_TIER: gate
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
   # Build Docker image with pre-baked toolchain (cached — only rebuilds on Dockerfile/lockfile change)
