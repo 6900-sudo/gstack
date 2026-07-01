@@ -50,7 +50,7 @@ export const Scene5Launch: React.FC = () => {
 					{CHECKLIST.map((item, i) => (
 						<SpringIn
 							key={item}
-							delay={30 + i * 10}
+							delay={30 + i * 12}
 							from={{opacity: 0, y: 24, scale: 1}}
 							style={{
 								display: 'flex',
@@ -71,7 +71,7 @@ export const Scene5Launch: React.FC = () => {
 					))}
 				</div>
 
-				<SpringIn delay={80} from={{opacity: 0, y: 20, scale: 0.7}}>
+				<SpringIn delay={100} from={{opacity: 0, y: 20, scale: 0.7}}>
 					<div
 						style={{
 							display: 'flex',

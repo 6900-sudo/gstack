@@ -95,7 +95,7 @@ export const Scene3BuildStore: React.FC = () => {
 						}}
 					>
 						{PRODUCTS.map((p, i) => (
-							<SpringIn key={p.label} delay={50 + i * 10} style={{width: 250}}>
+							<SpringIn key={p.label} delay={50 + i * 12} style={{width: 250}}>
 								<div
 									style={{
 										border: `3px solid ${COLORS.muted}`,
@@ -119,7 +119,7 @@ export const Scene3BuildStore: React.FC = () => {
 
 					{/* checkout button */}
 					<SpringIn
-						delay={95}
+						delay={115}
 						style={{
 							position: 'absolute',
 							bottom: 60,

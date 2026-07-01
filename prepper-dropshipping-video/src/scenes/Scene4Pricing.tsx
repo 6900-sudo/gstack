@@ -75,24 +75,24 @@ export const Scene4Pricing: React.FC = () => {
 						</div>
 					</SpringIn>
 
-					<SpringIn delay={75}>
+					<SpringIn delay={80}>
 						<ArrowRightIcon size={70} />
 					</SpringIn>
 
-					<SpringIn delay={85}>
+					<SpringIn delay={95}>
 						<div style={{textAlign: 'center'}}>
 							<div style={{fontSize: FONT_SIZES.label, color: COLORS.success, marginBottom: 8}}>
 								Your Price
 							</div>
 							<div style={{fontSize: FONT_SIZES.headline, fontWeight: 800, color: COLORS.success}}>
-								<CountUp from={0} to={29.99} startFrame={85} durationInFrames={30} prefix="$" decimals={2} />
+								<CountUp from={0} to={29.99} startFrame={95} durationInFrames={30} prefix="$" decimals={2} />
 							</div>
 						</div>
 					</SpringIn>
 				</div>
 
 				{/* margin badge */}
-				<SpringIn delay={125} style={{marginTop: 56}}>
+				<SpringIn delay={140} style={{marginTop: 56}}>
 					<div
 						style={{
 							fontSize: FONT_SIZES.body,
@@ -104,7 +104,7 @@ export const Scene4Pricing: React.FC = () => {
 							padding: '18px 40px',
 						}}
 					>
-						+<CountUp from={0} to={199} startFrame={125} durationInFrames={30} decimals={0} />% Margin
+						+<CountUp from={0} to={199} startFrame={140} durationInFrames={30} decimals={0} />% Margin
 					</div>
 				</SpringIn>
 			</SafeArea>

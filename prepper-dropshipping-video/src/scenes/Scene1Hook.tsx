@@ -68,7 +68,7 @@ export const Scene1Hook: React.FC = () => {
 					{BAR_HEIGHTS.map((h, i) => (
 						<SpringIn
 							key={i}
-							delay={40 + i * 9}
+							delay={40 + i * 12}
 							from={{opacity: 0, scale: 1, y: h}}
 							style={{
 								width: 64,
@@ -94,7 +94,7 @@ export const Scene1Hook: React.FC = () => {
 						marginTop: 70,
 					}}
 				>
-					<SpringIn delay={95} style={{position: 'relative'}}>
+					<SpringIn delay={105} style={{position: 'relative'}}>
 						<WarehouseIcon size={84} color={COLORS.muted} />
 						<div
 							style={{
@@ -110,7 +110,7 @@ export const Scene1Hook: React.FC = () => {
 						/>
 					</SpringIn>
 
-					<SpringIn delay={110}>
+					<SpringIn delay={122}>
 						<div
 							style={{
 								fontSize: FONT_SIZES.label,

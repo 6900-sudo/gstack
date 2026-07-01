@@ -66,7 +66,7 @@ export const Scene2Niche: React.FC = () => {
 								d={`M ${NICHE_BOX.x} ${NICHE_BOX.y + 40} L ${n.x} ${n.y - 55}`}
 								stroke={COLORS.muted}
 								strokeWidth={4}
-								startFrame={20 + i * 8}
+								startFrame={20 + i * 12}
 								durationInFrames={22}
 							/>
 						))}
@@ -74,7 +74,7 @@ export const Scene2Niche: React.FC = () => {
 							d={`M ${SUPPLIER_BOX.x} ${NODES[1].y + 55} L ${SUPPLIER_BOX.x} ${SUPPLIER_BOX.y - 40}`}
 							stroke={COLORS.success}
 							strokeWidth={5}
-							startFrame={95}
+							startFrame={115}
 							durationInFrames={20}
 						/>
 					</svg>
@@ -112,7 +112,7 @@ export const Scene2Niche: React.FC = () => {
 					{NODES.map((n, i) => (
 						<SpringIn
 							key={n.label}
-							delay={55 + i * 9}
+							delay={55 + i * 12}
 							style={{
 								position: 'absolute',
 								left: n.x - 80,
@@ -153,7 +153,7 @@ export const Scene2Niche: React.FC = () => {
 
 					{/* Supplier box */}
 					<SpringIn
-						delay={110}
+						delay={135}
 						style={{
 							position: 'absolute',
 							left: SUPPLIER_BOX.x - 150,
