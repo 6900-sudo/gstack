@@ -58,16 +58,16 @@ object FFmpegHelper {
 
     fun resizeToReels(context: Context, input: String, output: String, onDone: (Boolean) -> Unit) {
         val vf = "scale=1080:1920:force_original_aspect_ratio=decrease," +
-                 "pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black"
-        exec("-y -i \"$input\" -vf \"$vf\" -c:v libx264 -crf 28 -preset ultrafast -c:a aac \"$output\"", onDone)
+                 "pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black,format=yuv420p"
+        exec("-y -i \"$input\" -vf \"$vf\" -c:v h264_mediacodec -b:v 4M -c:a aac \"$output\"", onDone)
     }
 
     fun addTextOverlay(context: Context, input: String, output: String,
                        text: String, onDone: (Boolean) -> Unit) {
         val escaped = text.take(80).ffEscape()
         val vf = "drawtext=text='$escaped':fontsize=60:fontcolor=white:" +
-                 "box=1:boxcolor=black@0.6:boxborderw=10:x=(w-text_w)/2:y=h-160"
-        exec("-y -i \"$input\" -vf \"$vf\" -c:v libx264 -crf 28 -preset ultrafast -c:a aac \"$output\"", onDone)
+                 "box=1:boxcolor=black@0.6:boxborderw=10:x=(w-text_w)/2:y=h-160,format=yuv420p"
+        exec("-y -i \"$input\" -vf \"$vf\" -c:v h264_mediacodec -b:v 4M -c:a aac \"$output\"", onDone)
     }
 
     fun textToVideo(context: Context, lines: List<String>, output: String,
@@ -83,7 +83,7 @@ object FFmpegHelper {
                     val s = FFmpegKit.execute(
                         "-y -loop 1 -i \"${png.absolutePath}\" -t 3 " +
                         "-vf \"scale=1080:1920,format=yuv420p\" " +
-                        "-c:v libx264 -preset ultrafast -crf 30 -r 25 \"${clip.absolutePath}\""
+                        "-c:v h264_mediacodec -b:v 4M -r 25 \"${clip.absolutePath}\""
                     )
                     png.delete()
                     if (!ReturnCode.isSuccess(s.returnCode)) throw Exception("slide $i failed")
@@ -115,8 +115,8 @@ object FFmpegHelper {
             "drawtext=text='$esc':fontsize=52:fontcolor=white:" +
             "box=1:boxcolor=black@0.6:boxborderw=8:x=(w-text_w)/2:y=h-160:" +
             "enable='between(t,$t0,$t1)'"
-        }.joinToString(",")
-        exec("-y -i \"$input\" -vf \"$filters\" -c:v libx264 -crf 28 -preset ultrafast -c:a aac \"$output\"", onDone)
+        }.joinToString(",") + ",format=yuv420p"
+        exec("-y -i \"$input\" -vf \"$filters\" -c:v h264_mediacodec -b:v 4M -c:a aac \"$output\"", onDone)
     }
 
     fun applyDramaticEffect(context: Context, input: String, output: String,
@@ -124,13 +124,13 @@ object FFmpegHelper {
         val scale = "scale=1080:1920:force_original_aspect_ratio=decrease," +
                     "pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black"
         val vf = when (style) {
-            DramaticStyle.CINEMATIC -> "hue=s=0,$scale"
+            DramaticStyle.CINEMATIC -> "hue=s=0,$scale,format=yuv420p"
             DramaticStyle.SEPIA ->
-                "colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131,$scale"
+                "colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131,$scale,format=yuv420p"
             DramaticStyle.NOIR ->
-                "hue=s=0,curves=all='0/0 0.25/0 0.75/1 1/1',$scale"
+                "hue=s=0,curves=all='0/0 0.25/0 0.75/1 1/1',$scale,format=yuv420p"
         }
-        exec("-y -i \"$input\" -vf \"$vf\" -c:v libx264 -crf 28 -preset ultrafast -c:a aac \"$output\"", onDone)
+        exec("-y -i \"$input\" -vf \"$vf\" -c:v h264_mediacodec -b:v 4M -c:a aac \"$output\"", onDone)
     }
 
     fun addBreakingNewsOverlay(context: Context, input: String, output: String,
@@ -146,8 +146,8 @@ object FFmpegHelper {
         }
         FFmpegKit.executeAsync(
             "-y -i \"$input\" -i \"${overlay.absolutePath}\" " +
-            "-filter_complex \"[0:v][1:v]overlay=0:0\" " +
-            "-c:v libx264 -crf 28 -preset ultrafast -c:a aac \"$output\""
+            "-filter_complex \"[0:v][1:v]overlay=0:0,format=yuv420p\" " +
+            "-c:v h264_mediacodec -b:v 4M -c:a aac \"$output\""
         ) { session ->
             overlay.delete()
             val ok = ReturnCode.isSuccess(session.returnCode)
@@ -168,7 +168,7 @@ object FFmpegHelper {
                     val s = FFmpegKit.execute(
                         "-y -loop 1 -i \"${png.absolutePath}\" -t 4.5 " +
                         "-vf \"scale=1080:1920,format=yuv420p\" " +
-                        "-c:v libx264 -preset ultrafast -crf 30 -r 25 \"${clip.absolutePath}\""
+                        "-c:v h264_mediacodec -b:v 4M -r 25 \"${clip.absolutePath}\""
                     )
                     png.delete()
                     if (!ReturnCode.isSuccess(s.returnCode)) throw Exception("news slide $i failed")

@@ -24,7 +24,7 @@ compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
 compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
-ffmpeg-kit-min-gpl = { group = "com.arthenica", name = "ffmpeg-kit-min-gpl", version.ref = "ffmpegKit" }
+ffmpeg-kit-min = { group = "com.arthenica", name = "ffmpeg-kit-min", version.ref = "ffmpegKit" }
 exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "exoplayer" }
 exoplayer-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "exoplayer" }
 

@@ -58,7 +58,7 @@ dependencies {
     implementation(libs.compose.material.icons.extended)
 
     implementation(libs.kotlinx.coroutines.android)
-    implementation(libs.ffmpeg.kit.min.gpl)
+    implementation(libs.ffmpeg.kit.min)
 
     implementation(libs.exoplayer)
     implementation(libs.exoplayer.ui)
