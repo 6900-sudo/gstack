@@ -392,12 +392,12 @@ fun EffectsTab(vm: ReelsViewModel) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var videoUri by remember { mutableStateOf<Uri?>(null) }
-    var selectedStyle by remember { mutableStateOf(FFmpegHelper.DramaticStyle.CINEMATIC) }
+    var selectedStyle by remember { mutableStateOf(TemplateRenderer.DramaticStyle.CINEMATIC) }
 
     val styleOptions = listOf(
-        FFmpegHelper.DramaticStyle.CINEMATIC to "Cinematic B&W",
-        FFmpegHelper.DramaticStyle.SEPIA     to "Sepia",
-        FFmpegHelper.DramaticStyle.NOIR      to "Noir"
+        TemplateRenderer.DramaticStyle.CINEMATIC to "Cinematic B&W",
+        TemplateRenderer.DramaticStyle.SEPIA     to "Sepia",
+        TemplateRenderer.DramaticStyle.NOIR      to "Noir"
     )
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

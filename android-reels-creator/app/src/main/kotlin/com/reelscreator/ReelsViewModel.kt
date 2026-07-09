@@ -156,7 +156,7 @@ class ReelsViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun applyDramaticEffect(input: String, output: String, style: FFmpegHelper.DramaticStyle) {
+    fun applyDramaticEffect(input: String, output: String, style: TemplateRenderer.DramaticStyle) {
         if (guardBusy()) return
         _state.value = processing()
         FFmpegHelper.applyDramaticEffect(ctx, input, output, style) { ok ->
