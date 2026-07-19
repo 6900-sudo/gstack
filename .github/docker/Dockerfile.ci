@@ -4,21 +4,23 @@ FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Switch apt sources to Hetzner's public mirror.
+# Optionally switch apt sources to an alternate mirror (opt-in via build arg).
 # Ubicloud runners (Hetzner FSN1-DC21) hit reliable connection timeouts to
-# archive.ubuntu.com:80 — observed 90+ second outages on multiple builds.
-# Hetzner's mirror is publicly accessible from any cloud and route-local for
-# Ubicloud, so this fixes both reliability and latency. Ubuntu 24.04 uses
-# the deb822 sources format at /etc/apt/sources.list.d/ubuntu.sources.
+# archive.ubuntu.com:80 — observed 90+ second outages on multiple builds —
+# so builds there should pass APT_MIRROR=http://mirror.hetzner.com/ubuntu/packages.
+# GitHub-hosted (Azure) runners are the opposite: the stock Ubuntu mirrors are
+# route-local there while mirror.hetzner.com is not, so the default is stock.
+# Ubuntu 24.04 uses the deb822 sources format at /etc/apt/sources.list.d/ubuntu.sources.
 #
 # Using HTTP (not HTTPS) intentionally: the base ubuntu:24.04 image ships
 # without ca-certificates, so HTTPS apt fails with "No system certificates
 # available." Apt's security model verifies via GPG-signed Release files,
 # not TLS, so HTTP here is no weaker than the upstream defaults.
-RUN sed -i \
-    -e 's|http://archive.ubuntu.com/ubuntu|http://mirror.hetzner.com/ubuntu/packages|g' \
-    -e 's|http://security.ubuntu.com/ubuntu|http://mirror.hetzner.com/ubuntu/packages|g' \
-    /etc/apt/sources.list.d/ubuntu.sources
+ARG APT_MIRROR=""
+RUN if [ -n "$APT_MIRROR" ]; then sed -i \
+    -e "s|http://archive.ubuntu.com/ubuntu|$APT_MIRROR|g" \
+    -e "s|http://security.ubuntu.com/ubuntu|$APT_MIRROR|g" \
+    /etc/apt/sources.list.d/ubuntu.sources; fi
 
 # Also make apt itself resilient — per-package retries + generous timeouts.
 # Hetzner's mirror is reliable but individual packages can still blip; the
@@ -31,8 +33,9 @@ RUN printf 'Acquire::Retries "5";\nAcquire::http::Timeout "30";\nAcquire::https:
 RUN for i in 1 2 3; do \
       apt-get update && apt-get install -y --no-install-recommends \
         git curl unzip xz-utils ca-certificates jq bc gpg && break || \
-      (echo "apt retry $i/3 after failure"; sleep 10); \
+      { echo "apt retry $i/3 after failure"; [ "$i" = 3 ] && exit 1; sleep 10; }; \
     done \
+    && command -v curl && command -v gpg \
     && rm -rf /var/lib/apt/lists/*
 
 # GitHub CLI
@@ -42,7 +45,7 @@ RUN curl --retry 5 --retry-delay 5 --retry-connrefused -fsSL https://cli.github.
     | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
     && for i in 1 2 3; do \
          apt-get update && apt-get install -y --no-install-recommends gh && break || \
-         (echo "gh install retry $i/3"; sleep 10); \
+         { echo "gh install retry $i/3"; [ "$i" = 3 ] && exit 1; sleep 10; }; \
        done \
     && rm -rf /var/lib/apt/lists/*
 
@@ -84,7 +87,7 @@ RUN npx playwright install-deps chromium
 # common production --headed path goes untested.
 RUN for i in 1 2 3; do \
       apt-get update && apt-get install -y --no-install-recommends fonts-liberation fontconfig xvfb x11-utils && break || \
-      (echo "fonts-liberation install retry $i/3"; sleep 10); \
+      { echo "fonts-liberation install retry $i/3"; [ "$i" = 3 ] && exit 1; sleep 10; }; \
     done \
     && fc-cache -f \
     && rm -rf /var/lib/apt/lists/*
