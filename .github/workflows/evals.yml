@@ -21,11 +21,17 @@ jobs:
       packages: write
     outputs:
       image-tag: ${{ steps.meta.outputs.tag }}
+      has-anthropic-key: ${{ steps.keycheck.outputs.has-key }}
     steps:
       - uses: actions/checkout@v4
 
       - id: meta
         run: echo "tag=${{ env.IMAGE }}:${{ hashFiles('.github/docker/Dockerfile.ci', 'package.json', 'bun.lock') }}" >> "$GITHUB_OUTPUT"
+
+      # Repos without eval secrets (forks) skip the paid eval matrix entirely
+      # instead of queueing jobs that can never run or authenticate.
+      - id: keycheck
+        run: echo "has-key=${{ secrets.ANTHROPIC_API_KEY != '' }}" >> "$GITHUB_OUTPUT"
 
       - uses: docker/login-action@v3
         with:
@@ -58,6 +64,7 @@ jobs:
   evals:
     runs-on: ${{ matrix.suite.runner || 'ubicloud-standard-8' }}
     needs: build-image
+    if: needs.build-image.outputs.has-anthropic-key == 'true'
     container:
       image: ${{ needs.build-image.outputs.image-tag }}
       credentials:
