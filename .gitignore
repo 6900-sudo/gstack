@@ -9,7 +9,8 @@ make-pdf/dist/
 !lib/diagram-render/dist/**
 bin/gstack-global-discover*
 .gstack/
-.claude/skills/
+.claude/skills/*
+!.claude/skills/hygiene/
 .claude/gstack-rendered/
 .claude/scheduled_tasks.lock
 .claude/*.lock
