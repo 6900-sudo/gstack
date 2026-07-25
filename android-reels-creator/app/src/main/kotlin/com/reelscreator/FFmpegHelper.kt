@@ -21,7 +21,7 @@ object FFmpegHelper {
     fun cancel() = ReelEngine.cancel()
 
     fun trimVideo(context: Context, input: String, output: String,
-                  startSec: Double, durationSec: Double, onDone: (Boolean) -> Unit) {
+                  startSec: Double, durationSec: Double, onDone: (Boolean, String?) -> Unit) {
         val item = EditedMediaItem.Builder(
             MediaItem.Builder()
                 .setUri(Uri.parse("file://$input"))
@@ -36,23 +36,34 @@ object FFmpegHelper {
         ReelEngine.startSingle(context, item, output, onDone)
     }
 
-    fun mergeClips(context: Context, inputs: List<String>, output: String, onDone: (Boolean) -> Unit) {
+    fun mergeClips(context: Context, inputs: List<String>, output: String,
+                   onDone: (Boolean, String?) -> Unit) {
         val items = inputs.map { p ->
             EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse("file://$p"))).build()
         }
-        val composition = Composition.Builder(listOf(EditedMediaItemSequence(items))).build()
+        val composition = Composition.Builder(listOf(EditedMediaItemSequence(items)))
+            .experimentalSetForceAudioTrack(true)
+            .build()
         ReelEngine.start(context, composition, output, onDone = onDone)
     }
 
-    fun addAudio(videoInput: String, audioInput: String, output: String, onDone: (Boolean) -> Unit) {
+    fun addAudio(videoInput: String, audioInput: String, output: String,
+                 onDone: (Boolean, String?) -> Unit) {
         val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
         Thread {
-            val ok = try { muxVideoWithAudio(videoInput, audioInput, output); true } catch (_: Exception) { false }
-            mainHandler.post { onDone(ok) }
+            var err: String? = null
+            val ok = try {
+                muxVideoWithAudio(videoInput, audioInput, output); true
+            } catch (e: Exception) {
+                err = e.message ?: e.javaClass.simpleName
+                false
+            }
+            mainHandler.post { onDone(ok, err) }
         }.start()
     }
 
-    fun resizeToReels(context: Context, input: String, output: String, onDone: (Boolean) -> Unit) {
+    fun resizeToReels(context: Context, input: String, output: String,
+                      onDone: (Boolean, String?) -> Unit) {
         val item = EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse("file://$input")))
             .setEffects(TemplateRenderer.resizeEffects())
             .build()
@@ -60,7 +71,7 @@ object FFmpegHelper {
     }
 
     fun addTextOverlay(context: Context, input: String, output: String,
-                       text: String, onDone: (Boolean) -> Unit) {
+                       text: String, onDone: (Boolean, String?) -> Unit) {
         val item = EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse("file://$input")))
             .setEffects(TemplateRenderer.captionEffects(text))
             .build()
@@ -68,13 +79,15 @@ object FFmpegHelper {
     }
 
     fun textToVideo(context: Context, lines: List<String>, output: String,
-                    onProgress: ((Int) -> Unit)? = null, onDone: (Boolean) -> Unit) {
+                    onProgress: ((Int) -> Unit)? = null,
+                    onDone: (Boolean, String?) -> Unit) {
         FFmpegRenderWorker.renderSlides(context, lines, output, onProgress, onDone)
     }
 
     fun addTxtOverlay(context: Context, input: String, output: String,
-                      lines: List<String>, videoDurationSec: Double, onDone: (Boolean) -> Unit) {
-        if (lines.isEmpty()) { onDone(false); return }
+                      lines: List<String>, videoDurationSec: Double,
+                      onDone: (Boolean, String?) -> Unit) {
+        if (lines.isEmpty()) { onDone(false, "TXT file has no lines"); return }
         val item = EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse("file://$input")))
             .setEffects(TemplateRenderer.txtOverlayEffects(lines, videoDurationSec))
             .build()
@@ -82,11 +95,12 @@ object FFmpegHelper {
     }
 
     fun applyDramaticEffect(context: Context, input: String, output: String,
-                            style: TemplateRenderer.DramaticStyle, onDone: (Boolean) -> Unit) {
+                            style: TemplateRenderer.DramaticStyle,
+                            onDone: (Boolean, String?) -> Unit) {
         val effects = try {
             TemplateRenderer.dramaticEffects(style)
-        } catch (_: Throwable) {
-            onDone(false)
+        } catch (e: Throwable) {
+            onDone(false, "Effect setup failed: ${e.message ?: e.javaClass.simpleName}")
             return
         }
         val item = EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse("file://$input")))
@@ -96,11 +110,11 @@ object FFmpegHelper {
     }
 
     fun addBreakingNewsOverlay(context: Context, input: String, output: String,
-                               headline: String, onDone: (Boolean) -> Unit) {
+                               headline: String, onDone: (Boolean, String?) -> Unit) {
         val effects = try {
             TemplateRenderer.breakingNewsEffects(headline)
-        } catch (_: Throwable) {
-            onDone(false)
+        } catch (e: Throwable) {
+            onDone(false, "Overlay setup failed: ${e.message ?: e.javaClass.simpleName}")
             return
         }
         val item = EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse("file://$input")))
@@ -110,7 +124,8 @@ object FFmpegHelper {
     }
 
     fun dramaticNewsReel(context: Context, headlines: List<String>, output: String,
-                         onProgress: ((Int) -> Unit)? = null, onDone: (Boolean) -> Unit) {
+                         onProgress: ((Int) -> Unit)? = null,
+                         onDone: (Boolean, String?) -> Unit) {
         FFmpegRenderWorker.renderNewsReel(context, headlines, output, onProgress, onDone)
     }
 

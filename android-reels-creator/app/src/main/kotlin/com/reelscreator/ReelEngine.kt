@@ -3,6 +3,7 @@ package com.reelscreator
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import androidx.annotation.MainThread
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
@@ -15,6 +16,8 @@ import androidx.media3.transformer.Transformer
 
 @OptIn(UnstableApi::class)
 object ReelEngine {
+
+    private const val TAG = "ReelEngine"
 
     @Volatile private var active: Transformer? = null
 
@@ -29,7 +32,7 @@ object ReelEngine {
         composition: Composition,
         output: String,
         onProgress: ((Int) -> Unit)? = null,
-        onDone: (Boolean) -> Unit
+        onDone: (Boolean, String?) -> Unit
     ) {
         try {
             active?.cancel()
@@ -38,7 +41,8 @@ object ReelEngine {
             transformer.start(composition, output)
             onProgress?.let { startProgressPolling(transformer, it) }
         } catch (e: Throwable) {
-            onDone(false)
+            Log.e(TAG, "start() threw", e)
+            onDone(false, e.message ?: e.javaClass.simpleName)
         }
     }
 
@@ -47,7 +51,7 @@ object ReelEngine {
         context: Context,
         item: EditedMediaItem,
         output: String,
-        onDone: (Boolean) -> Unit
+        onDone: (Boolean, String?) -> Unit
     ) {
         try {
             active?.cancel()
@@ -55,21 +59,28 @@ object ReelEngine {
             active = transformer
             transformer.start(item, output)
         } catch (e: Throwable) {
-            onDone(false)
+            Log.e(TAG, "startSingle() threw", e)
+            onDone(false, e.message ?: e.javaClass.simpleName)
         }
     }
 
-    private fun build(context: Context, onDone: (Boolean) -> Unit): Transformer =
+    private fun build(context: Context, onDone: (Boolean, String?) -> Unit): Transformer =
         Transformer.Builder(context)
             .addListener(object : Transformer.Listener {
                 override fun onCompleted(composition: Composition, exportResult: ExportResult) {
                     active = null
-                    onDone(true)
+                    onDone(true, null)
                 }
                 override fun onError(composition: Composition, exportResult: ExportResult,
                                      exportException: ExportException) {
                     active = null
-                    onDone(false)
+                    val msg = buildString {
+                        append(exportException.errorCodeName)
+                        exportException.message?.takeIf { it.isNotBlank() }?.let { append(": ").append(it) }
+                        exportException.cause?.message?.takeIf { it.isNotBlank() }?.let { append(" (").append(it).append(")") }
+                    }
+                    Log.e(TAG, "Transformer error: $msg", exportException)
+                    onDone(false, msg)
                 }
             })
             .build()

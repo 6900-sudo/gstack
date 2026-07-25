@@ -90,51 +90,54 @@ class ReelsViewModel(application: Application) : AndroidViewModel(application) {
 
     // ── Video operations ──────────────────────────────────────────────────
 
+    private fun label(fallback: String, err: String?): String =
+        if (err.isNullOrBlank()) fallback else "$fallback — $err"
+
     fun trimVideo(input: String, output: String, start: Double, duration: Double) {
         if (guardBusy()) return
         _state.value = processing()
-        FFmpegHelper.trimVideo(ctx, input, output, start, duration) { ok ->
-            _state.value = if (ok) done(output) else failed("Trim failed")
+        FFmpegHelper.trimVideo(ctx, input, output, start, duration) { ok, err ->
+            _state.value = if (ok) done(output) else failed(label("Trim failed", err))
         }
     }
 
     fun mergeClips(inputs: List<String>, output: String) {
         if (guardBusy()) return
         _state.value = processing()
-        FFmpegHelper.mergeClips(ctx, inputs, output) { ok ->
-            _state.value = if (ok) done(output) else failed("Merge failed")
+        FFmpegHelper.mergeClips(ctx, inputs, output) { ok, err ->
+            _state.value = if (ok) done(output) else failed(label("Merge failed", err))
         }
     }
 
     fun addAudio(video: String, audio: String, output: String) {
         if (guardBusy()) return
         _state.value = processing()
-        FFmpegHelper.addAudio(video, audio, output) { ok ->
-            _state.value = if (ok) done(output) else failed("Audio mix failed")
+        FFmpegHelper.addAudio(video, audio, output) { ok, err ->
+            _state.value = if (ok) done(output) else failed(label("Audio mix failed", err))
         }
     }
 
     fun resizeToReels(input: String, output: String) {
         if (guardBusy()) return
         _state.value = processing()
-        FFmpegHelper.resizeToReels(ctx, input, output) { ok ->
-            _state.value = if (ok) done(output) else failed("Resize failed")
+        FFmpegHelper.resizeToReels(ctx, input, output) { ok, err ->
+            _state.value = if (ok) done(output) else failed(label("Resize failed", err))
         }
     }
 
     fun addCaption(input: String, output: String, text: String) {
         if (guardBusy()) return
         _state.value = processing()
-        FFmpegHelper.addTextOverlay(ctx, input, output, text) { ok ->
-            _state.value = if (ok) done(output) else failed("Caption failed")
+        FFmpegHelper.addTextOverlay(ctx, input, output, text) { ok, err ->
+            _state.value = if (ok) done(output) else failed(label("Caption failed", err))
         }
     }
 
     fun textToVideo(lines: List<String>, output: String) {
         if (guardBusy()) return
         _state.value = processing()
-        FFmpegHelper.textToVideo(ctx, lines, output, onProgress = ::updateProgress) { ok ->
-            _state.value = if (ok) done(output) else failed("Text-to-video failed")
+        FFmpegHelper.textToVideo(ctx, lines, output, onProgress = ::updateProgress) { ok, err ->
+            _state.value = if (ok) done(output) else failed(label("Text-to-video failed", err))
         }
     }
 
@@ -150,8 +153,8 @@ class ReelsViewModel(application: Application) : AndroidViewModel(application) {
                 _state.value = failed("TXT file empty or unreadable")
                 return@launch
             }
-            FFmpegHelper.addTxtOverlay(ctx, video, output, lines, durationSec) { ok ->
-                _state.value = if (ok) done(output) else failed("TXT overlay failed")
+            FFmpegHelper.addTxtOverlay(ctx, video, output, lines, durationSec) { ok, err ->
+                _state.value = if (ok) done(output) else failed(label("TXT overlay failed", err))
             }
         }
     }
@@ -159,24 +162,24 @@ class ReelsViewModel(application: Application) : AndroidViewModel(application) {
     fun applyDramaticEffect(input: String, output: String, style: TemplateRenderer.DramaticStyle) {
         if (guardBusy()) return
         _state.value = processing()
-        FFmpegHelper.applyDramaticEffect(ctx, input, output, style) { ok ->
-            _state.value = if (ok) done(output) else failed("Effect failed")
+        FFmpegHelper.applyDramaticEffect(ctx, input, output, style) { ok, err ->
+            _state.value = if (ok) done(output) else failed(label("Effect failed", err))
         }
     }
 
     fun addBreakingNewsOverlay(input: String, output: String, headline: String) {
         if (guardBusy()) return
         _state.value = processing()
-        FFmpegHelper.addBreakingNewsOverlay(ctx, input, output, headline) { ok ->
-            _state.value = if (ok) done(output) else failed("Breaking news overlay failed")
+        FFmpegHelper.addBreakingNewsOverlay(ctx, input, output, headline) { ok, err ->
+            _state.value = if (ok) done(output) else failed(label("Breaking news overlay failed", err))
         }
     }
 
     fun dramaticNewsReel(headlines: List<String>, output: String) {
         if (guardBusy()) return
         _state.value = processing()
-        FFmpegHelper.dramaticNewsReel(ctx, headlines, output, onProgress = ::updateProgress) { ok ->
-            _state.value = if (ok) done(output) else failed("News reel generation failed")
+        FFmpegHelper.dramaticNewsReel(ctx, headlines, output, onProgress = ::updateProgress) { ok, err ->
+            _state.value = if (ok) done(output) else failed(label("News reel generation failed", err))
         }
     }
 }

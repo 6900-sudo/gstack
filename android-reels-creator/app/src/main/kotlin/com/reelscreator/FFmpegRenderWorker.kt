@@ -14,19 +14,20 @@ object FFmpegRenderWorker {
         lines: List<String>,
         output: String,
         onProgress: ((Int) -> Unit)? = null,
-        onDone: (Boolean) -> Unit
+        onDone: (Boolean, String?) -> Unit
     ) {
         Thread {
             val (composition, tmpFiles) = try {
                 TemplateRenderer.textSlideComposition(context, lines)
-            } catch (_: Throwable) {
-                Handler(Looper.getMainLooper()).post { onDone(false) }
+            } catch (e: Throwable) {
+                val msg = "Slide render failed: ${e.message ?: e.javaClass.simpleName}"
+                Handler(Looper.getMainLooper()).post { onDone(false, msg) }
                 return@Thread
             }
             Handler(Looper.getMainLooper()).post {
-                ReelEngine.start(context, composition, output, onProgress) { ok ->
+                ReelEngine.start(context, composition, output, onProgress) { ok, err ->
                     tmpFiles.forEach { it.delete() }
-                    onDone(ok)
+                    onDone(ok, err)
                 }
             }
         }.start()
@@ -37,19 +38,20 @@ object FFmpegRenderWorker {
         headlines: List<String>,
         output: String,
         onProgress: ((Int) -> Unit)? = null,
-        onDone: (Boolean) -> Unit
+        onDone: (Boolean, String?) -> Unit
     ) {
         Thread {
             val (composition, tmpFiles) = try {
                 TemplateRenderer.newsReelComposition(context, headlines)
-            } catch (_: Throwable) {
-                Handler(Looper.getMainLooper()).post { onDone(false) }
+            } catch (e: Throwable) {
+                val msg = "News reel render failed: ${e.message ?: e.javaClass.simpleName}"
+                Handler(Looper.getMainLooper()).post { onDone(false, msg) }
                 return@Thread
             }
             Handler(Looper.getMainLooper()).post {
-                ReelEngine.start(context, composition, output, onProgress) { ok ->
+                ReelEngine.start(context, composition, output, onProgress) { ok, err ->
                     tmpFiles.forEach { it.delete() }
-                    onDone(ok)
+                    onDone(ok, err)
                 }
             }
         }.start()
