@@ -79,6 +79,8 @@ object TemplateRenderer {
     // ── Composition builders ──────────────────────────────────────────────────
 
     // Returns (composition, temp files to delete after export).  May throw.
+    // Image-only compositions require experimentalSetForceAudioTrack(true); without it
+    // the MP4 muxer fails silently at export time because the output has no audio track.
     fun textSlideComposition(context: Context, lines: List<String>): Pair<Composition, List<File>> {
         val tmpFiles = mutableListOf<File>()
         val slides = lines.map { line ->
@@ -90,12 +92,14 @@ object TemplateRenderer {
             }
             EditedMediaItem.Builder(
                 MediaItem.Builder().setUri(Uri.fromFile(tmp)).setImageDurationMs(3000L).build()
-            ).setEffects(Effects(
-                emptyList(),
-                listOf(Presentation.createForWidthAndHeight(1080, 1920, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP))
-            )).build()
+            )
+                .setFrameRate(30)
+                .build()
         }
-        return Composition.Builder(listOf(EditedMediaItemSequence(slides))).build() to tmpFiles
+        val composition = Composition.Builder(listOf(EditedMediaItemSequence(slides)))
+            .experimentalSetForceAudioTrack(true)
+            .build()
+        return composition to tmpFiles
     }
 
     // Returns (composition, temp files to delete after export).  May throw.
@@ -110,12 +114,14 @@ object TemplateRenderer {
             }
             EditedMediaItem.Builder(
                 MediaItem.Builder().setUri(Uri.fromFile(tmp)).setImageDurationMs(4500L).build()
-            ).setEffects(Effects(
-                emptyList(),
-                listOf(Presentation.createForWidthAndHeight(1080, 1920, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP))
-            )).build()
+            )
+                .setFrameRate(30)
+                .build()
         }
-        return Composition.Builder(listOf(EditedMediaItemSequence(slides))).build() to tmpFiles
+        val composition = Composition.Builder(listOf(EditedMediaItemSequence(slides)))
+            .experimentalSetForceAudioTrack(true)
+            .build()
+        return composition to tmpFiles
     }
 
     // ── Overlay helpers ───────────────────────────────────────────────────────
