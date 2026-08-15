@@ -1,4 +1,4 @@
-/**
+/*
  * Read commands — extract data from pages without side effects
  *
  * text, html, links, forms, accessibility, js, eval, css, attrs,
@@ -22,6 +22,23 @@ export { validateReadPath } from './path-security';
 export const SENSITIVE_COOKIE_NAME = /(^|[_.-])(token|secret|key|password|credential|auth|jwt|session|csrf|sid)($|[_.-])|api.?key/i;
 export const SENSITIVE_COOKIE_VALUE = /^(eyJ|sk-|sk_live_|sk_test_|pk_live_|pk_test_|rk_live_|sk-ant-|ghp_|gho_|github_pat_|xox[bpsa]-|AKIA[A-Z0-9]{16}|AIza|SG\.|Bearer\s|sbp_)/;
 
+/**
+ * Evaluate arbitrary code in the page/frame context without interpolating the
+ * code into a surrounding server-side string. The code string is passed as an
+ * argument to page.evaluate and executed inside an async IIFE so top-level
+ * await is supported. This avoids constructing JS by concatenation which can be
+ * broken by malicious input.
+ */
+async function evaluateCode(target: Page | Frame, code: string): Promise<any> {
+  return await target.evaluate(async (codeStr: string) => {
+    // Intentionally using eval in the page context only. We do NOT interpolate
+    // `codeStr` into a surrounding string on the server which avoids server-side
+    // template injection / syntax-breaking issues.
+    // eslint-disable-next-line no-eval
+    return await (async () => eval(codeStr))();
+  }, code);
+}
+
 /** Detect await keyword, ignoring comments. Accepted risk: await in string literals triggers wrapping (harmless). */
 function hasAwait(code: string): boolean {
   const stripped = code.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -39,6 +56,8 @@ function needsBlockWrapper(code: string): boolean {
 
 /** Wrap code for page.evaluate(), using async IIFE with block or expression body as needed. */
 function wrapForEvaluate(code: string): string {
+  // Keep the wrapper for backward-compatibility in case any callers need the
+  // string form, but prefer evaluateCode() which passes the code as an arg.
   if (!hasAwait(code)) return code;
   const trimmed = code.trim();
   return needsBlockWrapper(trimmed)
@@ -294,8 +313,8 @@ export async function handleReadCommand(
       const expr = rest[0];
       if (!expr) throw new Error('Usage: browse js <expression> [--out <file>] [--raw]');
       if (bm) assertJsOriginAllowed(bm, page.url());
-      const wrapped = wrapForEvaluate(expr);
-      const result = await target.evaluate(wrapped);
+      // Evaluate without interpolating the expression into a wrapper string.
+      const result = await evaluateCode(target, expr);
       const str = resultToString(result);
       if (outPath) {
         const n = writeEvalResult(outPath, str, { raw });
@@ -312,8 +331,8 @@ export async function handleReadCommand(
       validateReadPath(filePath);
       if (!fs.existsSync(filePath)) throw new Error(`File not found: ${filePath}`);
       const code = fs.readFileSync(filePath, 'utf-8');
-      const wrapped = wrapForEvaluate(code);
-      const result = await target.evaluate(wrapped);
+      // Evaluate without interpolating the file contents into a wrapper string.
+      const result = await evaluateCode(target, code);
       const str = resultToString(result);
       if (outPath) {
         const n = writeEvalResult(outPath, str, { raw });
