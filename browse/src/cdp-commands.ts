@@ -1,4 +1,4 @@
-/**
+/*
  * $B cdp <Domain.method> [json-params] — CLI surface for the CDP escape hatch.
  *
  * Output for trusted methods is a plain JSON pretty-print.
@@ -23,6 +23,48 @@ function parseQualified(name: string): { domain: string; method: string } {
   return { domain: name.slice(0, idx), method: name.slice(idx + 1) };
 }
 
+/**
+ * Validate CDP params parsed from JSON. Guards against overly-deep/large
+ * payloads and non-serializable values. Keeps checks intentionally simple —
+ * this is a minimal hardening to fail-fast on obviously-malicious inputs.
+ */
+function validateCdpParams(obj: unknown, maxDepth = 5, maxNodes = 1000, maxStringLen = 2000) {
+  let nodes = 0;
+  function _walk(v: unknown, depth: number) {
+    nodes++;
+    if (nodes > maxNodes) throw new Error('CDP params rejected: payload too large');
+    if (depth > maxDepth) throw new Error('CDP params rejected: payload too deep');
+
+    if (v === null) return;
+    const t = typeof v;
+    if (t === 'string') {
+      if ((v as string).length > maxStringLen) throw new Error('CDP params rejected: string too long');
+      return;
+    }
+    if (t === 'number') {
+      if (!Number.isFinite(v as number)) throw new Error('CDP params rejected: non-finite number');
+      return;
+    }
+    if (t === 'boolean') return;
+    if (Array.isArray(v)) {
+      for (const it of v) _walk(it, depth + 1);
+      return;
+    }
+    if (t === 'object') {
+      // iterate own enumerable properties only
+      for (const key of Object.keys(v as Record<string, unknown>)) {
+        const val = (v as Record<string, unknown>)[key];
+        _walk(key, depth + 1);
+        _walk(val, depth + 1);
+      }
+      return;
+    }
+    // Functions, symbols, undefined — reject
+    throw new Error('CDP params rejected: unsupported value type');
+  }
+  _walk(obj, 0);
+}
+
 export async function handleCdpCommand(args: string[], bm: BrowserManager): Promise<string> {
   if (args.length === 0 || args[0] === 'help' || args[0] === '--help') {
     return [
@@ -45,7 +87,14 @@ export async function handleCdpCommand(args: string[], bm: BrowserManager): Prom
   if (args[1]) {
     try {
       params = JSON.parse(args[1]) ?? {};
+      // Basic validation to reject obviously-malicious or malformed payloads.
+      validateCdpParams(params);
     } catch (e: any) {
+      // If our own validator threw, surface a clear error; otherwise the JSON.parse
+      // error path provides context about invalid JSON.
+      if (e && typeof e.message === 'string' && e.message.startsWith('CDP params rejected')) {
+        throw e;
+      }
       throw new Error(
         `Cannot parse params as JSON: ${e.message}\n` +
           `Cause: argument '${args[1]}' is not valid JSON.\n` +
