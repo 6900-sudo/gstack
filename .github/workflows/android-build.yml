@@ -49,10 +49,10 @@ jobs:
           path: android-reels-creator/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
       - name: Publish rolling release
-  if: github.ref == 'refs/heads/main'
-  env:
-    GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  run: |
+      if: github.ref == 'refs/heads/main'
+      env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
     cp android-reels-creator/app/build/outputs/apk/debug/app-debug.apk reels-creator-${GITHUB_SHA::7}.apk
     gh release delete latest-android --yes --cleanup-tag 2>/dev/null || true
     sleep 2
