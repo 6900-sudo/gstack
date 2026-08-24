@@ -48,7 +48,7 @@ jobs:
           name: reels-creator-debug
           path: android-reels-creator/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
-- name: Publish rolling release
+      - name: Publish rolling release
   if: github.ref == 'refs/heads/main'
   env:
     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -61,7 +61,3 @@ jobs:
       --title "Reels Creator (latest debug build)" \
       --notes "Auto-built from commit ${GITHUB_SHA::7}. Download the .apk, transfer to phone, enable Install unknown apps for your file manager, tap to install." \
       --prerelease
-            "reels-creator-${GITHUB_SHA::7}.apk" \
-            --title "Reels Creator (latest debug build)" \
-            --notes "Auto-built from commit ${GITHUB_SHA::7}. Download the .apk, transfer to phone, enable Install unknown apps for your file manager, tap to install." \
-            --prerelease
