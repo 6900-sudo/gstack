@@ -248,6 +248,11 @@
       "routing": "One command from zero to \"gbrain is running, and this agent\ncan call it.\" Use when: \"setup gbrain\", \"connect gbrain\", \"start\ngbrain\", \"install gbrain\", \"configure gbrain for this machine\".",
       "voice_line": null
     },
+    "setup-huggingface": {
+      "lead": "Register the Hugging Face MCP server with Claude Code so the agent can search models, datasets, and Spaces; read Hub files; run remote GPU jobs; and call HF Inference endpoints — all from within a...",
+      "routing": "Use when: \"setup huggingface\", \"add huggingface mcp\", \"connect huggingface\",\n\"install hf mcp\", \"setup hf tools\".",
+      "voice_line": null
+    },
     "ship": {
       "lead": "Ship workflow: detect + merge base branch, run tests, review diff, bump VERSION, update CHANGELOG, commit, push, create PR.",
       "routing": "Use when asked to \"ship\", \"deploy\",\n\"push to main\", \"create a PR\", \"merge and push\", or \"get it deployed\".\nProactively invoke this skill (do NOT push/PR directly) when the user says code\nis ready, asks about deploying, wants to push code up, or asks to create a PR.",
