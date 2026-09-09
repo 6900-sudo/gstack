@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.60.2.0] - 2026-09-08
+
+**New `/setup-huggingface` skill wires the HF MCP into Claude Code in one command.**
+
+Run `/setup-huggingface` and the skill registers `https://huggingface.co/mcp` as an HTTP MCP server in your Claude Code config, then walks you through authentication and shows you the eight HF tools that become available: model/dataset/Space search, Hub filesystem reads and writes, remote GPU job submission, and free Gradio Space invocations. Restart Claude Code once and you have the whole Hub in your session.
+
+### The numbers that matter
+
+Source: manual verification against `~/.claude.json` after running `claude mcp add --transport http hugging-face https://huggingface.co/mcp` in this session.
+
+| Metric | Before | After |
+|--------|--------|-------|
+| HF Hub tools available in Claude Code | 0 | 8 (hf_fs, hf_jobs, hf_whoami, hub_repo_search, hub_repo_details, create_repo, dynamic_space, hf_fs_write) |
+| Setup steps without the skill | manual CLI, verify JSON, check auth | `/setup-huggingface` once |
+
+### What this means for you
+
+After `/setup-huggingface`, your next Claude Code session can search trending models, read README files from any Hub repo, spawn remote GPU inference jobs, and call Gradio Spaces for image gen or TTS — all without leaving the agent. HF remote compute jobs require a Pro subscription; public Space invocations via `dynamic_space` are free.
+
+### Itemized changes
+
+#### Added
+
+- `setup-huggingface/SKILL.md.tmpl` + generated `SKILL.md`: new `/setup-huggingface` skill with four steps — detect existing registration, run `claude mcp add`, verify auth via `huggingface-cli whoami`, and display the available tool surface.
+- `llms.txt`: updated to include the new skill (56 skills total, up from 55).
+
 ## [1.60.1.0] - 2026-07-09
 
 ## **The /autoplan dual-voice eval is back on the board, catching real regressions.**
