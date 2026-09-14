@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code when working in this repository.
+
 # gstack development
 
 ## Commands
@@ -108,6 +112,8 @@ gstack/
 ├── design-shotgun/  # /design-shotgun skill (visual design exploration)
 ├── open-gstack-browser/  # /open-gstack-browser skill (launch GStack Browser)
 ├── connect-chrome/  # symlink → open-gstack-browser (backwards compat)
+├── openclaw/        # Native OpenClaw skills published to ClawHub
+│   └── skills/      # gstack-openclaw-{office-hours,ceo-review,investigate,retro}
 ├── design/          # Design binary CLI (GPT Image API)
 │   ├── src/         # CLI + commands (generate, variants, compare, serve, etc.)
 │   ├── test/        # Integration tests
@@ -116,6 +122,8 @@ gstack/
 ├── lib/             # Shared libraries (worktree.ts)
 ├── docs/designs/    # Design documents
 ├── setup-deploy/    # /setup-deploy skill (one-time deploy config)
+├── gstack-upgrade/  # /gstack-upgrade skill + migrations (post-install migrations)
+│   └── migrations/  # On-disk state migrations run automatically after ./setup
 ├── .github/         # CI workflows + Docker image
 │   ├── workflows/   # evals.yml (E2E on Ubicloud), skill-docs.yml, actionlint.yml
 │   └── docker/      # Dockerfile.ci (pre-baked toolchain + Playwright/Chromium)
