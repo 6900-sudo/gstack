@@ -106,4 +106,5 @@ jobs:
             --prerelease
 
       - name: Add release link to summary
-        run: |\n          echo "Latest release: https://github.com/${GITHUB_REPOSITORY}/releases/tag/latest-android" >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          echo "Latest release: https://github.com/${GITHUB_REPOSITORY}/releases/tag/latest-android" >> "$GITHUB_STEP_SUMMARY"
